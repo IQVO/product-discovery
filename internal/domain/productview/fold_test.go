@@ -2,6 +2,7 @@ package productview_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/IQVO/product-discovery/internal/domain/productview"
@@ -113,5 +114,16 @@ func TestListingStateForUnknownListingUpserts(t *testing.T) {
 	v, out := stub(t).ApplyListingState("L9", productview.ListingSuppressed)
 	if out != productview.Applied || len(v.Listings) != 1 || v.Listings[0].State != productview.ListingSuppressed {
 		t.Fatalf("upsert = %+v", v.Listings)
+	}
+}
+
+func TestTitleOfExactlyTheMaximumLengthIsAccepted(t *testing.T) {
+	title := strings.Repeat("é", productview.MaxTitle)
+	v, out, err := stub(t).ApplyItemCreated(productview.ItemCreated{Title: title})
+	if err != nil || out != productview.Applied || v.Title != title {
+		t.Fatalf("a title of %d characters is valid: %v %v", productview.MaxTitle, out, err)
+	}
+	if _, _, err := stub(t).ApplyItemCreated(productview.ItemCreated{Title: title + "x"}); !errors.Is(err, shared.ErrInvalidFact) {
+		t.Fatalf("one character more is not: %v", err)
 	}
 }

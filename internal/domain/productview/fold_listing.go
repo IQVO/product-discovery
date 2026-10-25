@@ -1,7 +1,8 @@
 package productview
 
 import (
-	"sort"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/IQVO/product-discovery/internal/domain/shared"
@@ -40,7 +41,7 @@ func (v View) withListing(l Listing) View {
 		}
 	}
 	out = append(out, l)
-	sort.Slice(out, func(i, j int) bool { return out[i].ListingID < out[j].ListingID })
+	slices.SortFunc(out, func(a, b Listing) int { return strings.Compare(a.ListingID, b.ListingID) })
 	v.Listings = out
 	return v
 }

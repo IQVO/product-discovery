@@ -51,8 +51,6 @@ func (v View) ApplyContentRetired(revision int64) (View, Outcome, error) {
 		return v, Stale, nil
 	}
 	v.Content = ContentRetired
-	if revision > v.ContentRevision {
-		v.ContentRevision = revision
-	}
+	v.ContentRevision = max(v.ContentRevision, revision)
 	return v, Applied, nil
 }
