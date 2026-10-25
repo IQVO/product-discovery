@@ -77,6 +77,10 @@ type Listing struct {
 	State        ListingState
 	AvailableQty int64
 	AsOf         time.Time // zero until the first availability fact
+	// StateKnown is false for a listing an availability fact created before
+	// any state fact (ListingCreated, ListingSuppressed, ListingRestored, a
+	// snapshot) said whether it is LIVE or SUPPRESSED.
+	StateKnown bool
 }
 
 // View is the ProductView row of one catalogue item. The category is kept as an

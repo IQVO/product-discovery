@@ -65,6 +65,13 @@ func TestContentRetireGuardAndRepublish(t *testing.T) {
 	if got, _, _ := v.ApplyContentRetired(5); got.ContentRevision != 5 {
 		t.Fatal("retire of a newer revision advances the guard")
 	}
+	later, out, _ := r.ApplyContentRetired(4)
+	if out != productview.Applied || later.ContentRevision != 4 {
+		t.Fatal("a newer retire advances the guard even when already retired")
+	}
+	if _, out, _ := later.ApplyContentPublished(productview.PublishedContent{Revision: 3}); out != productview.Stale {
+		t.Fatal("a replayed older publish must not revive retired content")
+	}
 	again, out, _ := r.ApplyContentPublished(productview.PublishedContent{Revision: 4})
 	if out != productview.Applied || again.Content != productview.ContentPublished {
 		t.Fatal("a newer publish revives retired content")
@@ -120,8 +127,15 @@ func TestPriceWithdrawGuardAndReprice(t *testing.T) {
 	if out != productview.Applied || w.Price != productview.PriceWithdrawn || w.HasPrice() || w.EffectivePriceMinor != 0 || w.ListPriceMinor != 0 {
 		t.Fatalf("withdrawn = %+v", w)
 	}
-	if _, out, _ := w.ApplyPriceWithdrawn(5); out != productview.Stale {
-		t.Fatal("withdrawing twice is stale")
+	if _, out, _ := w.ApplyPriceWithdrawn(4); out != productview.Stale {
+		t.Fatal("withdrawing twice at the same version is stale")
+	}
+	newer, out, _ := w.ApplyPriceWithdrawn(5)
+	if out != productview.Applied || newer.PriceVersion != 5 {
+		t.Fatal("a newer withdrawal advances the guard even when already withdrawn")
+	}
+	if _, out, _ := newer.ApplyPriceChanged(productview.PriceChanged{Currency: "USD", Version: 5}); out != productview.Stale {
+		t.Fatal("a replayed price below the withdrawal must not revive the row")
 	}
 	back, out, _ := w.ApplyPriceChanged(productview.PriceChanged{Currency: "USD", Version: 5, EffectivePriceMinor: 2})
 	if out != productview.Applied || back.Price != productview.PriceActive {

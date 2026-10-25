@@ -44,7 +44,10 @@ func (v View) ApplyContentRetired(revision int64) (View, Outcome, error) {
 	if revision < 0 {
 		return v, Stale, invalid("content of %s: revision %d", v.CatalogItemID, revision)
 	}
-	if v.Content == ContentRetired || (revision != 0 && revision < v.ContentRevision) {
+	if v.Content == ContentRetired && revision <= v.ContentRevision {
+		return v, Stale, nil
+	}
+	if revision != 0 && revision < v.ContentRevision {
 		return v, Stale, nil
 	}
 	v.Content = ContentRetired

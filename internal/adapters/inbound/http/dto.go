@@ -128,7 +128,7 @@ func hitDTO(h usecases.HitView) hitResponse {
 	return out
 }
 
-func searchDTO(r usecases.SearchResult) searchResponse {
+func searchDTO(r usecases.SearchPage) searchResponse {
 	out := searchResponse{Hits: []hitResponse{}, Facets: facetsDTO(r.Facets)}
 	for _, h := range r.Hits {
 		out.Hits = append(out.Hits, hitDTO(h))

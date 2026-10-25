@@ -44,6 +44,7 @@ type listingJSON struct {
 	State        string    `json:"state"`
 	AvailableQty int64     `json:"availableQty"`
 	AsOf         time.Time `json:"asOf"`
+	StateKnown   bool      `json:"stateKnown"`
 }
 
 const selectColumns = `catalog_item_id, title, hazmat, fragile, item_state, content_state, content_revision, description,
@@ -114,7 +115,7 @@ func decodeColumns(v *productview.View, bullets, attrs, media, listings []byte) 
 	}
 	for _, x := range l {
 		v.Listings = append(v.Listings, productview.Listing{
-			ListingID: x.ListingID, NodeID: x.NodeID, State: productview.ListingState(x.State), AvailableQty: x.AvailableQty, AsOf: x.AsOf,
+			ListingID: x.ListingID, NodeID: x.NodeID, State: productview.ListingState(x.State), AvailableQty: x.AvailableQty, AsOf: x.AsOf, StateKnown: x.StateKnown,
 		})
 	}
 	return nil

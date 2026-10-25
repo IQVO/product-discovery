@@ -46,15 +46,21 @@ func (v View) withListing(l Listing) View {
 }
 
 // ApplyListingCreated adds a LIVE listing with no quantity. A listing the row
-// already knows (its availability fact arrived first) is left as it is.
+// already knows (its availability fact arrived first) is left as it is, except
+// that its state is now known to be LIVE.
 func (v View) ApplyListingCreated(f ListingCreated) (View, Outcome, error) {
 	if !shared.ValidID(f.ListingID) || !shared.ValidID(f.NodeID) {
 		return v, Stale, invalid("listing %q at node %q", f.ListingID, f.NodeID)
 	}
-	if v.listingIndex(f.ListingID) >= 0 {
-		return v, Stale, nil
+	if i := v.listingIndex(f.ListingID); i >= 0 {
+		if v.Listings[i].StateKnown {
+			return v, Stale, nil
+		}
+		l := v.Listings[i]
+		l.StateKnown = true
+		return v.withListing(l), Applied, nil
 	}
-	return v.withListing(Listing{ListingID: f.ListingID, NodeID: f.NodeID, State: ListingLive}), Applied, nil
+	return v.withListing(Listing{ListingID: f.ListingID, NodeID: f.NodeID, State: ListingLive, StateKnown: true}), Applied, nil
 }
 
 // ApplyAvailability sets the quantity of a listing when asOf is strictly newer
@@ -79,13 +85,65 @@ func (v View) ApplyAvailability(f AvailabilityChanged) (View, Outcome, error) {
 // ListingRestored). A suppressed listing never counts towards inStock.
 func (v View) ApplyListingState(listingID string, state ListingState) (View, Outcome) {
 	i := v.listingIndex(listingID)
-	if i >= 0 && v.Listings[i].State == state {
+	if i >= 0 && v.Listings[i].State == state && v.Listings[i].StateKnown {
 		return v, Stale
 	}
-	l := Listing{ListingID: listingID, State: state}
+	l := Listing{ListingID: listingID}
 	if i >= 0 {
 		l = v.Listings[i]
-		l.State = state
 	}
+	l.State, l.StateKnown = state, true
 	return v.withListing(l), Applied
+}
+
+// ListingSnapshot is one row of the paged listing read of the bootstrap rebuild.
+type ListingSnapshot struct {
+	ListingID    string
+	NodeID       string
+	Suppressed   bool
+	AvailableQty int64
+	AsOf         time.Time // zero before the first feed
+}
+
+// ApplyListingSnapshot folds a snapshot row through the same rules as the
+// events, with one extra guarantee (ADR 0002 A16): a snapshot never rewinds a
+// state a state fact already set. A listing whose state is unknown (new, or
+// created by an availability fact alone) takes the snapshot state; for a
+// listing with a known state only the asOf guard may move the quantity.
+func (v View) ApplyListingSnapshot(f ListingSnapshot) (View, Outcome, error) {
+	if !shared.ValidID(f.ListingID) || !shared.ValidID(f.NodeID) {
+		return v, Stale, invalid("listing %q at node %q", f.ListingID, f.NodeID)
+	}
+	applied := false
+	if i := v.listingIndex(f.ListingID); i < 0 || !v.Listings[i].StateKnown {
+		state := ListingLive
+		if f.Suppressed {
+			state = ListingSuppressed
+		}
+		v, _ = v.ApplyListingState(f.ListingID, state)
+		v = v.withNode(f.ListingID, f.NodeID)
+		applied = true
+	}
+	if !f.AsOf.IsZero() {
+		next, out, err := v.ApplyAvailability(AvailabilityChanged{ListingID: f.ListingID, NodeID: f.NodeID, AvailableQty: f.AvailableQty, AsOf: f.AsOf})
+		if err != nil {
+			return v, Stale, err
+		}
+		v, applied = next, applied || out == Applied
+	}
+	if !applied {
+		return v, Stale, nil
+	}
+	return v, Applied, nil
+}
+
+// withNode sets the node of an existing listing.
+func (v View) withNode(listingID, nodeID string) View {
+	i := v.listingIndex(listingID)
+	if i < 0 || v.Listings[i].NodeID == nodeID {
+		return v
+	}
+	l := v.Listings[i]
+	l.NodeID = nodeID
+	return v.withListing(l)
 }

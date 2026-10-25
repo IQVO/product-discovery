@@ -30,12 +30,14 @@ func (v View) ApplyPriceChanged(f PriceChanged) (View, Outcome, error) {
 
 // ApplyPriceWithdrawn withdraws the price unless a newer version was already
 // folded. Withdrawing at the version already folded is the snapshot case and
-// applies; withdrawing twice is stale.
+// applies; a repeat at the same version is stale, but a withdrawal at a newer
+// version is recorded even when the price is already withdrawn, so a replayed
+// older ItemPriceChanged cannot revive it.
 func (v View) ApplyPriceWithdrawn(version int64) (View, Outcome, error) {
 	if version < 1 {
 		return v, Stale, invalid("price withdrawal of %s: version %d", v.CatalogItemID, version)
 	}
-	if v.Price == PriceWithdrawn || version < v.PriceVersion {
+	if version < v.PriceVersion || (v.Price == PriceWithdrawn && version == v.PriceVersion) {
 		return v, Stale, nil
 	}
 	v.Price, v.PriceVersion = PriceWithdrawn, version

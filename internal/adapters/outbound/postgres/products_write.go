@@ -20,7 +20,7 @@ func (r *ProductRepository) Save(ctx context.Context, v productview.View) error 
 		media = append(media, mediaJSON(m))
 	}
 	for _, l := range v.Listings {
-		listings = append(listings, listingJSON{ListingID: l.ListingID, NodeID: l.NodeID, State: string(l.State), AvailableQty: l.AvailableQty, AsOf: l.AsOf})
+		listings = append(listings, listingJSON{ListingID: l.ListingID, NodeID: l.NodeID, State: string(l.State), AvailableQty: l.AvailableQty, AsOf: l.AsOf, StateKnown: l.StateKnown})
 	}
 	bullets := v.Bullets
 	if bullets == nil {

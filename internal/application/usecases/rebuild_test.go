@@ -157,17 +157,36 @@ func TestRebuildReportsTheFailingSourceAndWalksEveryPage(t *testing.T) {
 	}
 }
 
-func TestRebuildRefusesPoisonRows(t *testing.T) {
+func TestRebuildSkipsRowsThatCannotBeFoldedAndGoesOn(t *testing.T) {
 	e := newEnv()
 	f := snapshot()
-	f.listings = []readmodel.ListingRow{{ListingID: "bad id", CatalogItemID: "A", NodeID: "N"}}
-	if _, err := e.rebuilder(f).Run(bg()); err == nil {
-		t.Fatal("an unfoldable row must abort the run")
+	f.catalog = append([]readmodel.CatalogRow{{CatalogItemID: "bad id", Title: "x"}, {CatalogItemID: "Z", Title: ""}}, f.catalog...)
+	f.listings = append([]readmodel.ListingRow{
+		{ListingID: "bad id", CatalogItemID: "A", NodeID: "N"},
+		{ListingID: "L9", CatalogItemID: "A", NodeID: "N", AvailableQty: -1, AsOf: t0},
+	}, f.listings...)
+	rep, err := e.rebuilder(f).Run(bg())
+	must(t, err)
+	if rep.Skipped != 4 {
+		t.Fatalf("skipped = %d, want 4 (%+v)", rep.Skipped, rep)
 	}
-	f = snapshot()
-	f.listings = []readmodel.ListingRow{{ListingID: "L1", CatalogItemID: "A", NodeID: "N", AvailableQty: -1, AsOf: t0}}
-	if _, err := e.rebuilder(f).Run(bg()); err == nil {
-		t.Fatal("a negative quantity must abort the run")
+	if !e.product(t, "A").Purchasable() {
+		t.Fatal("the valid rows after the bad ones must still be folded")
+	}
+}
+
+func TestRebuildSnapshotSuppressionWinsOverAStockFactAlone(t *testing.T) {
+	e := newEnv()
+	must(t, e.consumer.ApplyCatalogItemCreated(bg(), e.meta(), usecases.CatalogItemCreated{CatalogItemID: "A", Title: "Alpha"}))
+	must(t, e.consumer.ApplyListingAvailabilityChanged(bg(), e.meta(), usecases.ListingAvailabilityChanged{
+		ListingID: "LA", CatalogItemID: "A", NodeID: "N", AvailableQty: 4, AsOf: t0.Add(-1),
+	}))
+	f := snapshot()
+	f.listings = []readmodel.ListingRow{{ListingID: "LA", CatalogItemID: "A", NodeID: "N", Suppressed: true, AvailableQty: 4, AsOf: t0}}
+	_, err := e.rebuilder(f).Run(bg())
+	must(t, err)
+	if a := e.product(t, "A"); a.InStock() || a.Listings[0].State != productview.ListingSuppressed {
+		t.Fatalf("a listing no state fact has described takes the snapshot state: %+v", a.Listings)
 	}
 }
 

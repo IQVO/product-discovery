@@ -93,9 +93,15 @@ func TestAvailabilityAndListingRejectBadFacts(t *testing.T) {
 func TestListingCreatedAfterAvailabilityKeepsQuantity(t *testing.T) {
 	m := must(t)
 	v := m(stub(t).ApplyAvailability(productview.AvailabilityChanged{ListingID: "L1", NodeID: "N", AvailableQty: 4, AsOf: t0}))
+	if v.Listings[0].StateKnown {
+		t.Fatal("an availability fact alone does not say whether the listing is LIVE")
+	}
 	v2, out, err := v.ApplyListingCreated(productview.ListingCreated{ListingID: "L1", NodeID: "N"})
-	if err != nil || out != productview.Stale || v2.Listings[0].AvailableQty != 4 {
+	if err != nil || out != productview.Applied || v2.Listings[0].AvailableQty != 4 || !v2.Listings[0].StateKnown {
 		t.Fatalf("late create = %+v %v %v", v2, out, err)
+	}
+	if _, out, _ := v2.ApplyListingCreated(productview.ListingCreated{ListingID: "L1", NodeID: "N"}); out != productview.Stale {
+		t.Fatal("a repeated create is stale")
 	}
 	v3 := m(v.ApplyListingCreated(productview.ListingCreated{ListingID: "A0", NodeID: "N"}))
 	if v3.Listings[0].ListingID != "A0" || len(v3.Listings) != 2 {

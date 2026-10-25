@@ -17,7 +17,7 @@ func seededEnv(t *testing.T) *env {
 	return e
 }
 
-func hitIDs(r usecases.SearchResult) []string {
+func hitIDs(r usecases.SearchPage) []string {
 	out := []string{}
 	for _, h := range r.Hits {
 		out = append(out, h.CatalogItemID)

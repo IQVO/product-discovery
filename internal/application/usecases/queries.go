@@ -29,8 +29,8 @@ type HitView struct {
 	CategoryPath []string
 }
 
-// SearchResult is the answer of SearchProducts.
-type SearchResult struct {
+// SearchPage is the answer of SearchProducts.
+type SearchPage struct {
 	Hits        []HitView
 	Facets      []search.Facet
 	Suggestions []categoryview.Category
@@ -77,27 +77,27 @@ func (q Queries) ListCategories(ctx context.Context) (CategoryList, error) {
 // SearchProducts validates the input, resolves the category tree into the
 // request, runs the search, retries in trigram mode when a first full-text
 // page finds nothing (H6), and joins the category paths.
-func (q Queries) SearchProducts(ctx context.Context, in search.Input) (SearchResult, error) {
+func (q Queries) SearchProducts(ctx context.Context, in search.Input) (SearchPage, error) {
 	query, err := search.NewQuery(in)
 	if err != nil {
-		return SearchResult{}, err
+		return SearchPage{}, err
 	}
 	cats, err := q.Categories.Current(ctx)
 	if err != nil {
-		return SearchResult{}, err
+		return SearchPage{}, err
 	}
 	req := q.request(query, cats)
 	res, err := q.Search.Search(ctx, req)
 	if err != nil {
-		return SearchResult{}, err
+		return SearchPage{}, err
 	}
 	if req.Mode == search.ModeFTS && query.After == nil && len(res.Hits) == 0 {
 		req.Mode = search.ModeTrgm
 		if res, err = q.Search.Search(ctx, req); err != nil {
-			return SearchResult{}, err
+			return SearchPage{}, err
 		}
 	}
-	out := SearchResult{Facets: res.Facets}
+	out := SearchPage{Facets: res.Facets}
 	for _, h := range res.Hits {
 		out.Hits = append(out.Hits, HitView{Hit: h, CategoryPath: cats.Names(h.CategoryID)})
 	}
