@@ -52,6 +52,8 @@ func TestStemFoldsPlurals(t *testing.T) {
 	cases := map[string]string{
 		"kettles": "kettle", "batteries": "battery", "boxes": "box",
 		"gas": "gas", "bus": "bus", "tea": "tea", "ies": "ies", "glass": "glas",
+		"cats": "cat", "cars": "car", "bats": "bat", "lies": "lie", "ties": "tie", "pies": "pie", "taxes": "tax", "xes": "xes", "buses": "bus", "ches": "che", "cookies": "cooky",
+		"fies": "fie", "dies": "die", "ses": "ses", "bees": "bee",
 	}
 	for in, want := range cases {
 		if got := search.Stem(in); got != want {

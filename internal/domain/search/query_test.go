@@ -103,3 +103,15 @@ func TestDecodeCursorRejectsJunk(t *testing.T) {
 		}
 	}
 }
+
+func TestZeroPriceBoundsAreValid(t *testing.T) {
+	if q, err := search.NewQuery(search.Input{PriceMin: i64(0), PriceMax: i64(0)}); err != nil || !q.HasPriceFilter() {
+		t.Fatalf("a bound of 0 is valid: %+v %v", q, err)
+	}
+	if _, err := search.NewQuery(search.Input{PriceMax: i64(0)}); err != nil {
+		t.Fatalf("priceMax 0: %v", err)
+	}
+	if _, err := search.NewQuery(search.Input{PriceMin: i64(0)}); err != nil {
+		t.Fatalf("priceMin 0: %v", err)
+	}
+}

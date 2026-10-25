@@ -175,3 +175,27 @@ func TestRestoreRefusesCorruptRows(t *testing.T) {
 		}
 	}
 }
+
+func TestWithdrawalAtVersionOneIsValid(t *testing.T) {
+	v, out, err := stub(t).ApplyPriceWithdrawn(1)
+	if err != nil || out != productview.Applied || v.PriceVersion != 1 || v.Price != productview.PriceWithdrawn {
+		t.Fatalf("withdrawn at 1 = %+v %v %v", v, out, err)
+	}
+}
+
+func TestSnapshotOrdersListingsAndRestoreAcceptsZeroQuantity(t *testing.T) {
+	m := must(t)
+	v := stub(t)
+	for _, id := range []string{"L2", "L1", "L3"} {
+		v = m(v.ApplyAvailability(productview.AvailabilityChanged{ListingID: id, NodeID: "N", AvailableQty: 0, AsOf: t0}))
+	}
+	unordered := v.Snapshot()
+	unordered.Listings[0], unordered.Listings[2] = unordered.Listings[2], unordered.Listings[0]
+	got := unordered.Snapshot()
+	if got.Listings[0].ListingID != "L1" || got.Listings[1].ListingID != "L2" || got.Listings[2].ListingID != "L3" {
+		t.Fatalf("Snapshot must order listings by id: %+v", got.Listings)
+	}
+	if _, err := productview.Restore(v.Snapshot()); err != nil {
+		t.Fatalf("a listing with quantity 0 is valid: %v", err)
+	}
+}

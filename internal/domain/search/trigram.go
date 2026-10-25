@@ -64,12 +64,13 @@ func Similar(title, text string) bool {
 // deliberately small category-name matcher; item text is stemmed by the
 // full-text engine itself.
 func Stem(token string) string {
-	switch {
-	case len(token) > 4 && strings.HasSuffix(token, "ies"):
+	if len(token) > 4 && strings.HasSuffix(token, "ies") {
 		return token[:len(token)-3] + "y"
-	case len(token) > 4 && hasSibilantPlural(token):
+	}
+	if len(token) > 4 && hasSibilantPlural(token) {
 		return token[:len(token)-2]
-	case len(token) > 3 && strings.HasSuffix(token, "s"):
+	}
+	if len(token) > 3 && strings.HasSuffix(token, "s") {
 		return token[:len(token)-1]
 	}
 	return token

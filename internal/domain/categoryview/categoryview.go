@@ -199,8 +199,8 @@ func (v View) Suggestions(text string, limit int) []Category {
 		out = append(out, c)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return len(v.Names(out[i].ID)) < len(v.Names(out[j].ID)) })
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
+	if limit > 0 {
+		out = out[:min(limit, len(out))]
 	}
 	return out
 }

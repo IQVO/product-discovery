@@ -148,3 +148,51 @@ func TestMatchAndSuggestions(t *testing.T) {
 		t.Error("limit 0 means no limit")
 	}
 }
+
+func TestEqualPathsOrderByID(t *testing.T) {
+	v, err := categoryview.New(1, []categoryview.Category{
+		{ID: "b", Name: "Same", Path: "Same"}, {ID: "a", Name: "Same", Path: "Same"}, {ID: "c", Name: "Same", Path: "Same"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, c := range v.Categories() {
+		ids = append(ids, c.ID)
+	}
+	if !reflect.DeepEqual(ids, []string{"a", "b", "c"}) {
+		t.Fatalf("ids = %v", ids)
+	}
+}
+
+func TestVersionOneIsAcceptedOnceAndStaleTheSecondTime(t *testing.T) {
+	first, applied, err := categoryview.Replace(categoryview.View{}, 1, tree())
+	if err != nil || !applied {
+		t.Fatalf("first: %v %v", applied, err)
+	}
+	if _, applied, err := categoryview.Replace(first, 1, nil); err != nil || applied {
+		t.Fatalf("the same version 1 again must be stale: %v %v", applied, err)
+	}
+}
+
+func TestSuggestionsKeepPathOrderWithinADepth(t *testing.T) {
+	v, err := categoryview.New(1, []categoryview.Category{
+		{ID: "a", Name: "Kettles", Path: "A"}, {ID: "b", Name: "Kettles", Path: "B"}, {ID: "c", Name: "Kettles", Path: "C"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, c := range v.Suggestions("kettle", 0) {
+		ids = append(ids, c.ID)
+	}
+	if !reflect.DeepEqual(ids, []string{"a", "b", "c"}) {
+		t.Fatalf("equal-depth suggestions keep the path order, got %v", ids)
+	}
+	if got := v.Suggestions("kettle", 10); len(got) != 3 {
+		t.Fatalf("a limit above the matches returns them all: %v", got)
+	}
+	if got := v.Suggestions("kettle", 3); len(got) != 3 {
+		t.Fatalf("a limit equal to the matches returns them all: %v", got)
+	}
+}
