@@ -105,6 +105,9 @@ func NewQuery(in Input) (Query, error) {
 		if err != nil || c.Sort != q.Sort {
 			return Query{}, invalid("after", "not a cursor of this search")
 		}
+		if (c.Mode == ModeBrowse) != q.Browse() {
+			return Query{}, invalid("after", "not a cursor of this search")
+		}
 		q.After = &c
 	}
 	return q, nil

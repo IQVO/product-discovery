@@ -164,5 +164,9 @@ func Restore(s View) (View, error) {
 			return View{}, fmt.Errorf("%w: stored listing %q", shared.ErrInvalidFact, l.ListingID)
 		}
 	}
-	return s.Snapshot(), nil
+	out := s.Snapshot()
+	for i := range out.Listings {
+		out.Listings[i].AsOf = out.Listings[i].AsOf.UTC()
+	}
+	return out, nil
 }

@@ -70,12 +70,29 @@ func TestCursorRoundTripAndSortBinding(t *testing.T) {
 	if err != nil || got != c {
 		t.Fatalf("round trip = %+v %v", got, err)
 	}
-	if _, err := search.NewQuery(search.Input{Sort: "title", After: c.Encode()}); !errors.Is(err, search.ErrValidation) {
+	if _, err := search.NewQuery(search.Input{Sort: "title", Text: "x", After: c.Encode()}); !errors.Is(err, search.ErrValidation) {
 		t.Fatalf("a cursor of another sort must be refused: %v", err)
 	}
-	q, err := search.NewQuery(search.Input{Sort: "price-asc", After: c.Encode()})
+	q, err := search.NewQuery(search.Input{Sort: "price-asc", Text: "x", After: c.Encode()})
 	if err != nil || q.After == nil || q.After.ID != "I-1" {
 		t.Fatalf("matching cursor: %+v %v", q, err)
+	}
+}
+
+func TestCursorModeMustMatchTheQueryKind(t *testing.T) {
+	browse := search.Cursor{Sort: search.SortTitle, Mode: search.ModeBrowse, ID: "I-1"}
+	if _, err := search.NewQuery(search.Input{Sort: "title", Text: "kettle", After: browse.Encode()}); !errors.Is(err, search.ErrValidation) {
+		t.Fatalf("a browse cursor on a text search: %v", err)
+	}
+	trgm := search.Cursor{Sort: search.SortTitle, Mode: search.ModeTrgm, ID: "I-1"}
+	if _, err := search.NewQuery(search.Input{Sort: "title", After: trgm.Encode()}); !errors.Is(err, search.ErrValidation) {
+		t.Fatalf("a trgm cursor on a browse: %v", err)
+	}
+	if _, err := search.NewQuery(search.Input{Sort: "title", Text: "kettle", After: trgm.Encode()}); err != nil {
+		t.Fatalf("a trgm cursor on a text search: %v", err)
+	}
+	if _, err := search.NewQuery(search.Input{Sort: "title", After: browse.Encode()}); err != nil {
+		t.Fatalf("a browse cursor on a browse: %v", err)
 	}
 }
 
