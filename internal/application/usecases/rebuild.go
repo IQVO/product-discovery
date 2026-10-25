@@ -134,6 +134,9 @@ func (r Rebuilder) categories(ctx context.Context, rep *Report) error {
 	if err != nil {
 		return err
 	}
+	if tree.Version < 1 { // the producer has not published a tree yet
+		return nil
+	}
 	rep.Categories = len(tree.Categories)
 	return r.UoW.Do(ctx, func(ctx context.Context) error {
 		return r.replaceTree(ctx, tree.Version, tree.Categories)

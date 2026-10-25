@@ -170,3 +170,17 @@ func TestRebuildRefusesPoisonRows(t *testing.T) {
 		t.Fatal("a negative quantity must abort the run")
 	}
 }
+
+func TestRebuildSkipsAnUnpublishedTree(t *testing.T) {
+	e := newEnv()
+	f := snapshot()
+	f.tree = readmodel.CategoryTree{}
+	rep, err := e.rebuilder(f).Run(bg())
+	must(t, err)
+	if rep.Categories != 0 {
+		t.Fatalf("report = %+v", rep)
+	}
+	if got, _ := e.queries.ListCategories(bg()); got.Version != 0 {
+		t.Fatalf("tree = %+v", got)
+	}
+}
