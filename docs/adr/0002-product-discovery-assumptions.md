@@ -74,6 +74,22 @@ silent. Each assumption is also reported to the orchestrator as a `model_gap`.
   ping plus Kafka metadata with an empty non-nil topic list. The Kafka writer exists only for the dead-letter
   topic.
 
+- **A14 Price sorts skip unpriced rows.** `sort=price-asc|price-desc` and any price bound only list rows whose
+  price is ACTIVE: a row without a price has no position in a price order, and a keyset cursor needs one. The
+  other sorts list unpriced rows (shown as unavailable).
+- **A15 Configurable bands.** The band edges default to H6 and are overridable through `PRICE_BAND_EDGES`
+  (ascending positive minor units) on `cmd/api`; the facet labels follow the edges.
+- **A16 Rebuild never rewinds a listing.** A snapshot listing takes its SUPPRESSED/LIVE state only when the row
+  does not hold that listing yet; for a known listing only the `asOf` guard may move the quantity. A rebuild
+  therefore cannot undo a ListingRestored that arrived after the snapshot was read. An unpublished category tree
+  (version 0) is skipped.
+- **A17 Snapshot rows and `updatedAt`.** H7 asks for an `updatedAt` per snapshot row; the producers' paged reads
+  carry the guard values instead (see A6), which is what the fold rules compare. No clock is involved.
+- **A18 Three consumer groups.** One group per consumed topic (`OFFER_AVAILABILITY_CONSUMER_GROUP`,
+  `PRODUCT_CONTENT_CONSUMER_GROUP`, `PRICING_CONSUMER_GROUP`). Folds of one item from different groups are
+  serialised by a transaction-scoped advisory lock on the item (`ProductRepository.GetForUpdate`), which also
+  covers an item that has no row yet.
+
 ## Consequences
 
 Tests state each assumption. Changing one is a new ADR.
