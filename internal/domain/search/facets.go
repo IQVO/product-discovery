@@ -1,6 +1,9 @@
 package search
 
-import "sort"
+import (
+	"cmp"
+	"slices"
+)
 
 // The three facet names of a search result.
 const (
@@ -40,12 +43,8 @@ func NewFacets(c Counts, bands []Band) []Facet {
 			cat.Values = append(cat.Values, FacetValue{Value: id, Count: n})
 		}
 	}
-	sort.Slice(cat.Values, func(i, j int) bool {
-		a, b := cat.Values[i], cat.Values[j]
-		if a.Count != b.Count {
-			return a.Count > b.Count
-		}
-		return a.Value < b.Value
+	slices.SortFunc(cat.Values, func(a, b FacetValue) int {
+		return cmp.Or(cmp.Compare(b.Count, a.Count), cmp.Compare(a.Value, b.Value))
 	})
 	band := Facet{Name: FacetPriceBand}
 	for _, b := range bands {

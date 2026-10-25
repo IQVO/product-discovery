@@ -18,18 +18,13 @@ type Band struct {
 
 // Label is the facet value of the band: "<2500", "2500-4999", "25000+".
 func (b Band) Label() string {
-	switch {
-	case b.Upper == 0:
+	if b.Upper == 0 {
 		return strconv.FormatInt(b.Lower, 10) + "+"
-	case b.Lower == 0:
+	}
+	if b.Lower == 0 {
 		return "<" + strconv.FormatInt(b.Upper, 10)
 	}
 	return strconv.FormatInt(b.Lower, 10) + "-" + strconv.FormatInt(b.Upper-1, 10)
-}
-
-// Contains reports whether price falls in the band.
-func (b Band) Contains(price int64) bool {
-	return price >= b.Lower && (b.Upper == 0 || price < b.Upper)
 }
 
 // Bands builds the bands from ascending positive edges. Edges that are not
@@ -47,11 +42,12 @@ func Bands(edges []int64) []Band {
 	return append(out, Band{Lower: lower})
 }
 
-// BandOf returns the band of price among bands (the last band is open, so a
-// price always has one).
+// BandOf returns the band of price among bands: the first band whose upper
+// edge is above the price, else the open last band, so every price (even a
+// negative one) has a band.
 func BandOf(bands []Band, price int64) Band {
-	for _, b := range bands {
-		if b.Contains(price) {
+	for _, b := range bands[:len(bands)-1] {
+		if price < b.Upper {
 			return b
 		}
 	}

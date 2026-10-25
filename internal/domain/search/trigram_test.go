@@ -80,3 +80,20 @@ func TestStemSetIsSortedAndUnique(t *testing.T) {
 		t.Fatalf("StemSet = %v", got)
 	}
 }
+
+func TestSimilarityThresholdIsInclusive(t *testing.T) {
+	// "ddfdba" and "ddfff" share 3 of 10 trigrams: exactly the 0.3 threshold.
+	if got := search.Similarity("ddfdba", "ddfff"); got != search.SimilarityThreshold {
+		t.Fatalf("fixture drifted: similarity = %v", got)
+	}
+	if !search.Similar("ddfdba", "ddfff") {
+		t.Fatal("a similarity equal to the threshold matches")
+	}
+	// The same word inside a long title: the whole-title score is lower, the word score is exactly 0.3.
+	if !search.Similar("ddfdba zzzzzzzz", "ddfff") {
+		t.Fatal("a single word at the threshold matches")
+	}
+	if search.BestSimilarity("ddfdba zzzzzzzz", "ddfff") != search.SimilarityThreshold {
+		t.Fatal("BestSimilarity takes the best word")
+	}
+}

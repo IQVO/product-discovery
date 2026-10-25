@@ -44,3 +44,13 @@ func TestBandsIgnoreBadEdges(t *testing.T) {
 		t.Fatalf("a zero edge must be ignored, got %+v", got)
 	}
 }
+
+func TestBandOfNegativePriceFallsInTheFirstBand(t *testing.T) {
+	bands := search.Bands(search.DefaultBandEdges)
+	if got := search.BandOf(bands, -5).Label(); got != "<2500" {
+		t.Fatalf("BandOf(-5) = %q", got)
+	}
+	if got := search.BandOf(search.Bands(nil), 123).Label(); got != "0+" {
+		t.Fatalf("a single open band holds every price, got %q", got)
+	}
+}

@@ -9,7 +9,8 @@ package productview
 
 import (
 	"fmt"
-	"sort"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/IQVO/product-discovery/internal/domain/shared"
@@ -153,7 +154,7 @@ func (v View) Snapshot() View {
 	c.Attributes = append([]Attribute(nil), v.Attributes...)
 	c.Media = append([]Media(nil), v.Media...)
 	c.Listings = append([]Listing(nil), v.Listings...)
-	sort.Slice(c.Listings, func(i, j int) bool { return c.Listings[i].ListingID < c.Listings[j].ListingID })
+	slices.SortFunc(c.Listings, func(a, b Listing) int { return strings.Compare(a.ListingID, b.ListingID) })
 	return c
 }
 

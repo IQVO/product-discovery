@@ -65,7 +65,7 @@ func match(v productview.View, req readmodel.SearchRequest) (float64, bool) {
 	case req.Mode == search.ModeBrowse || q.Browse():
 		return 0, true
 	case req.Mode == search.ModeTrgm:
-		r := bestSimilarity(v.Title, q.Text)
+		r := search.BestSimilarity(v.Title, q.Text)
 		return r, r >= search.SimilarityThreshold
 	}
 	rank := 0.0
@@ -101,16 +101,6 @@ func filters(v productview.View, req readmodel.SearchRequest) bool {
 		return false
 	}
 	return true
-}
-
-func bestSimilarity(title, text string) float64 {
-	best := search.Similarity(title, text)
-	for _, w := range search.Tokens(title) {
-		if s := search.Similarity(w, text); s > best {
-			best = s
-		}
-	}
-	return best
 }
 
 func attributeText(v productview.View) string {

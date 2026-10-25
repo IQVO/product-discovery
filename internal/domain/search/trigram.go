@@ -47,17 +47,20 @@ func Similarity(a, b string) float64 {
 	return float64(shared) / float64(len(ta)+len(tb)-shared)
 }
 
+// BestSimilarity is the larger of the trigram similarity of text to the whole
+// title and to any single word of it, so a typo of one word of a long title
+// still matches (the word_similarity side of the SQL adapter).
+func BestSimilarity(title, text string) float64 {
+	best := Similarity(title, text)
+	for _, w := range Tokens(title) {
+		best = max(best, Similarity(w, text))
+	}
+	return best
+}
+
 // Similar reports whether title matches text by trigram similarity.
 func Similar(title, text string) bool {
-	if Similarity(title, text) >= SimilarityThreshold {
-		return true
-	}
-	for _, w := range Tokens(title) {
-		if Similarity(w, text) >= SimilarityThreshold {
-			return true
-		}
-	}
-	return false
+	return BestSimilarity(title, text) >= SimilarityThreshold
 }
 
 // Stem strips a plural ending so "kettles" and "kettle" meet. It is the

@@ -6,8 +6,9 @@
 package categoryview
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/IQVO/product-discovery/internal/domain/search"
 	"github.com/IQVO/product-discovery/internal/domain/shared"
@@ -59,11 +60,8 @@ func New(version int64, cats []Category) (View, error) {
 		v.byID[c.ID] = len(v.cats)
 		v.cats = append(v.cats, c)
 	}
-	sort.SliceStable(v.cats, func(i, j int) bool {
-		if v.cats[i].Path != v.cats[j].Path {
-			return v.cats[i].Path < v.cats[j].Path
-		}
-		return v.cats[i].ID < v.cats[j].ID
+	slices.SortStableFunc(v.cats, func(a, b Category) int {
+		return cmp.Or(cmp.Compare(a.Path, b.Path), cmp.Compare(a.ID, b.ID))
 	})
 	for i, c := range v.cats {
 		v.byID[c.ID] = i
@@ -198,7 +196,9 @@ func (v View) Suggestions(text string, limit int) []Category {
 		c, _ := v.Get(id)
 		out = append(out, c)
 	}
-	sort.SliceStable(out, func(i, j int) bool { return len(v.Names(out[i].ID)) < len(v.Names(out[j].ID)) })
+	slices.SortStableFunc(out, func(a, b Category) int {
+		return cmp.Compare(len(v.Names(a.ID)), len(v.Names(b.ID)))
+	})
 	if limit > 0 {
 		out = out[:min(limit, len(out))]
 	}
