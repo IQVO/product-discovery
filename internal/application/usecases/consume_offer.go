@@ -93,7 +93,7 @@ func (c Consumer) ApplyListingStateChanged(ctx context.Context, m Meta, in Listi
 	return c.handle(ctx, m, func(ctx context.Context) error {
 		itemID, err := c.Listings.Get(ctx, in.ListingID)
 		if errors.Is(err, ports.ErrNotFound) {
-			c.logger().Warn("listing state fact skipped: listing unknown", "listingId", in.ListingID, "eventId", m.EventID)
+			c.logger().WarnContext(ctx, "listing state fact skipped: listing unknown", "listingId", in.ListingID, "eventId", m.EventID)
 			return nil
 		}
 		if err != nil {
