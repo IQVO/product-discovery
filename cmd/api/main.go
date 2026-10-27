@@ -39,6 +39,7 @@ import (
 	inboundhttp "github.com/IQVO/product-discovery/internal/adapters/inbound/http"
 	outboundkafka "github.com/IQVO/product-discovery/internal/adapters/outbound/kafka"
 	"github.com/IQVO/product-discovery/internal/adapters/outbound/postgres"
+	"github.com/IQVO/product-discovery/internal/adapters/outbound/telemetry"
 	"github.com/IQVO/product-discovery/internal/application/usecases"
 	"github.com/IQVO/product-discovery/internal/bootretry"
 )
@@ -89,6 +90,13 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer pool.Close()
+
+	// The business counter binds to the MeterProvider telemetry.Setup installed.
+	searchMetrics, err := telemetry.NewSearchMetrics()
+	if err != nil {
+		return err
+	}
+	deps.Metrics = searchMetrics
 
 	readiness := newReadiness(pool.Ping, rt.brokers)
 	httpServer := &http.Server{

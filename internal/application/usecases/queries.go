@@ -78,10 +78,25 @@ func (q Queries) ListCategories(ctx context.Context) (CategoryList, error) {
 // request, runs the search, retries in trigram mode when a first full-text
 // page finds nothing (H6), and joins the category paths.
 func (q Queries) SearchProducts(ctx context.Context, in search.Input) (SearchPage, error) {
+	page, firstPage, err := q.searchProducts(ctx, in)
+	q.recordSearch(ctx, page, firstPage, err)
+	return page, err
+}
+
+// searchProducts is the search proper; firstPage reports that the request
+// carried no cursor, so an empty answer means "nothing matches", not "past the
+// last page".
+func (q Queries) searchProducts(ctx context.Context, in search.Input) (_ SearchPage, firstPage bool, _ error) {
 	query, err := search.NewQuery(in)
 	if err != nil {
-		return SearchPage{}, err
+		return SearchPage{}, false, err
 	}
+	firstPage = query.After == nil
+	out, err := q.runSearch(ctx, query)
+	return out, firstPage, err
+}
+
+func (q Queries) runSearch(ctx context.Context, query search.Query) (SearchPage, error) {
 	cats, err := q.Categories.Current(ctx)
 	if err != nil {
 		return SearchPage{}, err

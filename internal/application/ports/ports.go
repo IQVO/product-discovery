@@ -92,3 +92,20 @@ type ContentSource interface {
 	ListProductContents(ctx context.Context, after string, limit int) (readmodel.Page[readmodel.ContentRow], error)
 	ListCategories(ctx context.Context) (readmodel.CategoryTree, error)
 }
+
+// SearchMetrics records the business outcome of every SearchProducts call (Tier 2
+// of the fleet metrics convention). The use case calls exactly one method per
+// call: SearchServed when the page has hits (or is a continuation page),
+// SearchEmpty when a first page found nothing even after the trigram retry,
+// SearchFailed otherwise, with a stable low-cardinality reason. The
+// implementation lives in internal/adapters/outbound/telemetry; a nil
+// Deps.Metrics records nothing.
+type SearchMetrics interface {
+	// SearchServed counts a search that answered with hits.
+	SearchServed(ctx context.Context)
+	// SearchEmpty counts a first page that found no product.
+	SearchEmpty(ctx context.Context)
+	// SearchFailed counts a search that answered with an error; reason is
+	// "validation-failed" or "internal-error".
+	SearchFailed(ctx context.Context, reason string)
+}
