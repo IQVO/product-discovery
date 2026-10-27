@@ -1,0 +1,66 @@
+{{- include "product-discovery.requireRebuild" . -}}
+{{- if .Values.rebuild.enabled }}
+# cmd/rebuild (ADR 0003 S5, ADR 0005): a ONE-SHOT ops job, never an always-on
+# workload. Enable it for one `helm upgrade`, let it run to completion, then
+# disable it again (docs/operations/runbook.md). It reads DATABASE_URL and the
+# three producer base URLs (all mandatory; requireRebuild names the missing
+# one) and needs no Kafka: cmd/api's consumers resume from their committed
+# offsets afterwards and drop every replayed event that is not newer.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "product-discovery.fullname" . }}-rebuild
+  labels:
+    {{- include "product-discovery.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rebuild
+spec:
+  backoffLimit: {{ .Values.rebuild.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.rebuild.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "product-discovery.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rebuild
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "product-discovery.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: rebuild
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          # The same image carries every cmd/* binary (Dockerfile); the
+          # entrypoint is ./api, so the job names the rebuild binary.
+          image: {{ include "product-discovery.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/rebuild"]
+          env:
+            - name: LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            # DATABASE_URL always comes from a Secret.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "product-discovery.databaseSecretName" . }}
+                  key: {{ .Values.database.existingSecretKey }}
+            - name: OFFER_AVAILABILITY_URL
+              value: {{ .Values.rebuild.sources.offerAvailabilityUrl | quote }}
+            - name: PRICING_URL
+              value: {{ .Values.rebuild.sources.pricingUrl | quote }}
+            - name: PRODUCT_CONTENT_URL
+              value: {{ .Values.rebuild.sources.productContentUrl | quote }}
+          resources:
+            {{- toYaml .Values.rebuild.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
+{{- end }}
