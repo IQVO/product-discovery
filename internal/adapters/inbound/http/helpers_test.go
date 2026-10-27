@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -28,7 +29,11 @@ type env struct {
 	n        int
 }
 
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T) *env { return newEnvLogged(t, slog.New(slog.DiscardHandler)) }
+
+// newEnvLogged is newEnv with the router's request logger set (newEnv discards
+// it so the access lines do not flood the test output).
+func newEnvLogged(t *testing.T, logger *slog.Logger) *env {
 	t.Helper()
 	s := memory.NewStore()
 	deps := usecases.Deps{
@@ -36,7 +41,7 @@ func newEnv(t *testing.T) *env {
 		UoW: s.UnitOfWork(), Search: s.Search(),
 	}
 	ready := httpadapter.NewReadiness(0, 0)
-	srv := httptest.NewServer(httpadapter.NewRouter(&httpadapter.Server{Queries: usecases.Queries{Deps: deps}, Readiness: ready}))
+	srv := httptest.NewServer(httpadapter.NewRouter(&httpadapter.Server{Queries: usecases.Queries{Deps: deps}, Readiness: ready}, logger, ""))
 	t.Cleanup(srv.Close)
 	return &env{t: t, consumer: usecases.Consumer{Deps: deps}, ready: ready, srv: srv}
 }

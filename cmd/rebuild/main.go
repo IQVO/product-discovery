@@ -12,7 +12,15 @@
 //	OFFER_AVAILABILITY_URL  base URL of offer-availability
 //	PRICING_URL             base URL of pricing
 //	PRODUCT_CONTENT_URL     base URL of product-content
-//	LOG_LEVEL
+//	LOG_LEVEL               debug | info | warn | error (default info)
+//
+// Optional telemetry (the job exports on exit; a missing Collector costs
+// telemetry, never the run):
+//
+//	OTEL_SERVICE_NAME            service.name (default product-discovery-rebuild)
+//	OTEL_EXPORTER_OTLP_ENDPOINT  Collector OTLP/gRPC endpoint (default telemetry.DefaultEndpoint)
+//	SERVICE_VERSION              service.version (default dev)
+//	ENVIRONMENT                  deployment.environment.name (default local)
 package main
 
 import (
@@ -23,9 +31,11 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/IQVO/product-discovery/internal/adapters/outbound/postgres"
 	"github.com/IQVO/product-discovery/internal/adapters/outbound/sources"
+	"github.com/IQVO/product-discovery/internal/adapters/outbound/telemetry"
 	"github.com/IQVO/product-discovery/internal/application/usecases"
 	"github.com/IQVO/product-discovery/internal/bootretry"
 )
@@ -54,8 +64,10 @@ func main() { os.Exit(exitCode()) }
 func exitCode() int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := newLogger(os.Getenv("LOG_LEVEL"))
 	slog.SetDefault(logger)
+	flush := startTelemetry(ctx, logger, os.Getenv)
+	defer flush()
 	if err := run(ctx, os.Getenv, logger); err != nil {
 		logger.Error("rebuild failed", "error", err)
 		return 1
@@ -91,4 +103,43 @@ func run(ctx context.Context, env func(string) string, logger *slog.Logger) erro
 	logger.Info("rebuild finished", "items", rep.Items, "listings", rep.Listings, "prices", rep.Prices,
 		"contents", rep.Contents, "categories", rep.Categories)
 	return err
+}
+
+// newLogger builds the JSON logger, wrapped so a record written with a
+// span-carrying context also carries trace_id and span_id.
+func newLogger(level string) *slog.Logger {
+	var lvl slog.Level
+	if err := lvl.UnmarshalText([]byte(level)); err != nil {
+		lvl = slog.LevelInfo
+	}
+	return slog.New(telemetry.WithTraceContext(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl})))
+}
+
+// telemetryFlushTimeout bounds the final export attempt of a finished job.
+const telemetryFlushTimeout = 5 * time.Second
+
+// startTelemetry brings OpenTelemetry up for the job and returns the flush to
+// defer. A failed start or flush is logged, never fatal.
+func startTelemetry(ctx context.Context, logger *slog.Logger, env func(string) string) func() {
+	name := orDefault(env("OTEL_SERVICE_NAME"), "product-discovery-rebuild")
+	endpoint := orDefault(env("OTEL_EXPORTER_OTLP_ENDPOINT"), telemetry.DefaultEndpoint)
+	shutdown, err := telemetry.Setup(ctx, name, orDefault(env("SERVICE_VERSION"), telemetry.DefaultServiceVersion), endpoint)
+	if err != nil {
+		logger.Warn("telemetry disabled", "error", err)
+		return func() {}
+	}
+	return func() {
+		flushCtx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
+		defer cancel()
+		if err := shutdown(flushCtx); err != nil {
+			logger.Warn("telemetry flush failed on shutdown", "error", err)
+		}
+	}
+}
+
+func orDefault(v, fallback string) string {
+	if v != "" {
+		return v
+	}
+	return fallback
 }

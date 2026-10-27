@@ -82,17 +82,17 @@ func paged[T any](ctx context.Context, fetch func(after string) (readmodel.Page[
 
 // seed folds one snapshot row in its own unit of work.
 func (r Rebuilder) seed(ctx context.Context, rep *Report, itemID string, rule func(productview.View) (productview.View, productview.Outcome, error)) error {
-	return r.skipInvalid(rep, itemID, r.UoW.Do(ctx, func(ctx context.Context) error { return r.apply(ctx, itemID, rule) }))
+	return r.skipInvalid(ctx, rep, itemID, r.UoW.Do(ctx, func(ctx context.Context) error { return r.apply(ctx, itemID, rule) }))
 }
 
 // skipInvalid turns an unfoldable row into a logged skip; any other error
 // aborts the run.
-func (r Rebuilder) skipInvalid(rep *Report, key string, err error) error {
+func (r Rebuilder) skipInvalid(ctx context.Context, rep *Report, key string, err error) error {
 	if !errors.Is(err, shared.ErrInvalidFact) {
 		return err
 	}
 	rep.Skipped++
-	r.logger().Warn("rebuild skipped a row that cannot be folded", "key", key, "error", err)
+	r.logger().WarnContext(ctx, "rebuild skipped a row that cannot be folded", "key", key, "error", err)
 	return nil
 }
 
@@ -165,7 +165,7 @@ func (r Rebuilder) listings(ctx context.Context, rep *Report) error {
 		return r.Sources.Listings.ListListings(ctx, after, PageSize)
 	}, func(row readmodel.ListingRow) error {
 		rep.Listings++
-		return r.skipInvalid(rep, row.ListingID, r.UoW.Do(ctx, func(ctx context.Context) error {
+		return r.skipInvalid(ctx, rep, row.ListingID, r.UoW.Do(ctx, func(ctx context.Context) error {
 			if err := r.learn(ctx, row.ListingID, row.CatalogItemID); err != nil {
 				return err
 			}
