@@ -20,6 +20,14 @@ product-content and pricing (inbox, per-key monotonic guards, dead letters) and 
   (`OFFER_AVAILABILITY_URL`, `PRICING_URL`, `PRODUCT_CONTENT_URL`). It never runs on a user request.
 - Domain packages (`internal/domain`): `productview` (fold rules), `categoryview`, `search`, `shared`. Decisions: `docs/adr/`.
 
+## Observability
+
+Logs, metrics and traces follow the fleet standard ([ADR 0005](docs/adr/0005-fleet-observability-standard.md)): JSON logs on stdout carry
+`trace_id`/`span_id` and a `request_id`; `cmd/api` and `cmd/rebuild` export OTLP/gRPC to the Collector (`OTEL_EXPORTER_OTLP_ENDPOINT`,
+`OTEL_SERVICE_NAME`, `SERVICE_VERSION`, `ENVIRONMENT`; export never blocks, so no Collector costs telemetry, nothing else) with HTTP request
+duration, Go runtime metrics and the business counter `discovery.searches.served` (`outcome`, `reason`); the consumers continue the trace
+carried in the `traceparent` header of each consumed event.
+
 ## Quality gate
 
 `make check` (fast), `make check-all`, `make integration` (Docker), `make mutation` (every domain package), `make vuln`.

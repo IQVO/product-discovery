@@ -8,6 +8,7 @@
 package usecases
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/IQVO/product-discovery/internal/application/ports"
@@ -27,7 +28,25 @@ type Deps struct {
 	Bands []int64
 	// Log receives the facts a fold skipped on purpose; nil means slog.Default.
 	Log *slog.Logger
+	// Metrics records the business outcome of each search; nil records nothing,
+	// so unit tests need no wiring.
+	Metrics ports.SearchMetrics
 }
+
+// metrics returns the configured SearchMetrics or a no-op.
+func (d Deps) metrics() ports.SearchMetrics {
+	if d.Metrics != nil {
+		return d.Metrics
+	}
+	return noMetrics{}
+}
+
+// noMetrics is the SearchMetrics of a Deps without one.
+type noMetrics struct{}
+
+func (noMetrics) SearchServed(context.Context)         {}
+func (noMetrics) SearchEmpty(context.Context)          {}
+func (noMetrics) SearchFailed(context.Context, string) {}
 
 func (d Deps) logger() *slog.Logger {
 	if d.Log != nil {

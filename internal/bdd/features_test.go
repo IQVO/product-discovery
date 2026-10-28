@@ -49,7 +49,7 @@ func newWorld() *world {
 		UoW: s.UnitOfWork(), Search: s.Search(),
 	}
 	w := &world{store: s, deps: d, consumer: usecases.Consumer{Deps: d}}
-	w.srv = httptest.NewServer(inboundhttp.NewRouter(&inboundhttp.Server{Queries: usecases.Queries{Deps: d}}))
+	w.srv = httptest.NewServer(inboundhttp.NewRouter(&inboundhttp.Server{Queries: usecases.Queries{Deps: d}}, nil, ""))
 	return w
 }
 

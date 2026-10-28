@@ -42,6 +42,14 @@ spec:
           env:
             - name: LOG_LEVEL
               value: {{ .Values.config.logLevel | quote }}
+            - name: SERVICE_VERSION
+              value: {{ .Values.image.tag | default .Chart.AppVersion | quote }}
+            {{- if .Values.otel.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.otel.endpoint | quote }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ printf "%s-rebuild" .Values.otel.serviceName | quote }}
+            {{- end }}
             # DATABASE_URL always comes from a Secret.
             - name: DATABASE_URL
               valueFrom:

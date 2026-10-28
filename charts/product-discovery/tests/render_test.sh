@@ -66,7 +66,7 @@ api_binary_env() {
     grep -ohE '"[A-Z][A-Z0-9_]*_CONSUMER_GROUP"' "$repo_dir"/cmd/api/*.go --exclude='*_test.go' | tr -d '"'
   } | sort -u
 }
-# cmd/rebuild reads its four variables through a requiredEnv table of quoted
+# cmd/rebuild reads its eight variables through a requiredEnv table of quoted
 # all-caps literals, not through getenv calls; the scan reads that table.
 rebuild_binary_env() {
   grep -ohE '"[A-Z][A-Z0-9_]{2,}"' "$repo_dir"/cmd/rebuild/*.go --exclude='*_test.go' | tr -d '"' | sort -u
@@ -77,7 +77,7 @@ api_vars=($(api_binary_env))
 (( ${#api_vars[@]} >= 10 )) || fail "found only ${#api_vars[@]} env names in cmd/api; the scan is looking in the wrong place"
 # shellcheck disable=SC2207
 rebuild_vars=($(rebuild_binary_env))
-(( ${#rebuild_vars[@]} == 4 )) || fail "found ${#rebuild_vars[@]} env names in cmd/rebuild, want 4; the scan is looking in the wrong place"
+(( ${#rebuild_vars[@]} == 8 )) || fail "found ${#rebuild_vars[@]} env names in cmd/rebuild, want 8; the scan is looking in the wrong place"
 full_deployment="$(helm template "$release" "$chart_dir" "${base[@]}" "${everything[@]}" --show-only templates/deployment.yaml)"
 for var in "${api_vars[@]}" DATABASE_URL MIGRATIONS_DATABASE_URL KAFKA_BROKERS \
   OFFER_AVAILABILITY_CONSUMER_GROUP PRODUCT_CONTENT_CONSUMER_GROUP PRICING_CONSUMER_GROUP \

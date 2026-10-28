@@ -15,7 +15,11 @@
 //	PRICING_CONSUMER_GROUP             stable group id of the consumer (REQUIRED)
 //	PRICE_BAND_EDGES                   ascending minor-unit edges of the price facet (default 2500,5000,10000,25000)
 //	SHUTDOWN_DRAIN_DELAY               wait after flipping /readyz before closing (default 5s)
-//	LOG_LEVEL
+//	LOG_LEVEL                          debug | info | warn | error (default info)
+//	OTEL_SERVICE_NAME                  service.name of spans and metrics (default product-discovery)
+//	OTEL_EXPORTER_OTLP_ENDPOINT        Collector OTLP/gRPC endpoint (default telemetry.DefaultEndpoint); export never blocks
+//	SERVICE_VERSION                    service.version (default dev)
+//	ENVIRONMENT                        deployment.environment.name (default local)
 //
 // GET /readyz is 200 only while Postgres answers a ping AND a Kafka broker
 // answers a metadata request (verdict cached 3s, bounded 2s); /healthz is
@@ -35,6 +39,7 @@ import (
 	inboundhttp "github.com/IQVO/product-discovery/internal/adapters/inbound/http"
 	outboundkafka "github.com/IQVO/product-discovery/internal/adapters/outbound/kafka"
 	"github.com/IQVO/product-discovery/internal/adapters/outbound/postgres"
+	"github.com/IQVO/product-discovery/internal/adapters/outbound/telemetry"
 	"github.com/IQVO/product-discovery/internal/application/usecases"
 	"github.com/IQVO/product-discovery/internal/bootretry"
 )
@@ -68,6 +73,16 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Telemetry comes up before the router is built (otelchimetric binds the
+	// global MeterProvider at construction) and is flushed LAST: deferred before
+	// everything below, so the final spans of the drain still leave the process.
+	tel := loadTelemetryEnv(os.Getenv)
+	flushTelemetry, err := startTelemetry(logger, tel)
+	if err != nil {
+		return err
+	}
+	defer flushTelemetry()
+
 	// closeAdapters (pool.Close) is deferred FIRST so it runs LAST, after the
 	// HTTP drain and the consumers have stopped.
 	deps, pool, err := buildDeps(ctx, rt, logger)
@@ -76,10 +91,17 @@ func run(ctx context.Context) error {
 	}
 	defer pool.Close()
 
+	// The business counter binds to the MeterProvider telemetry.Setup installed.
+	searchMetrics, err := telemetry.NewSearchMetrics()
+	if err != nil {
+		return err
+	}
+	deps.Metrics = searchMetrics
+
 	readiness := newReadiness(pool.Ping, rt.brokers)
 	httpServer := &http.Server{
 		Addr:              getenv("HTTP_ADDR", ":8080"),
-		Handler:           inboundhttp.NewRouter(&inboundhttp.Server{Queries: usecases.Queries{Deps: deps}, Readiness: readiness}),
+		Handler:           inboundhttp.NewRouter(&inboundhttp.Server{Queries: usecases.Queries{Deps: deps}, Readiness: readiness}, logger, tel.serviceName),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	consumers, closeConsumers := startConsumers(deps, rt, logger)

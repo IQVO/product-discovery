@@ -1,4 +1,4 @@
-# ADR 0005: The rebuild binary ships as an optional, default-off Helm Job
+# ADR 0006: The rebuild binary ships as an optional, default-off Helm Job
 
 ## Status
 
