@@ -1,0 +1,36 @@
+{{ .Chart.Name }} has been deployed.
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Service:   {{ include "product-discovery.fullname" . }} ({{ .Values.service.type }}, port {{ .Values.service.port }})
+
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+Ingress:   http://{{ .host }}{{ (index .paths 0).path }}
+{{- end }}
+{{- else if .Values.gatewayApi.enabled }}
+Gateway API HTTPRoute enabled - routed via the parentRefs/hosts configured in gatewayApi.*.
+{{- else }}
+To reach it locally:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "product-discovery.fullname" . }} 8080:{{ .Values.service.port }}
+  curl http://localhost:8080/healthz
+{{- end }}
+
+product-discovery consumes events and publishes nothing (no outbox relay).
+The three consumers are ON under stable group ids:
+  offer-availability  group {{ .Values.config.offerAvailabilityConsumerGroup }}, topic retailnetwork.offer-availability.events
+  product-content     group {{ .Values.config.productContentConsumerGroup }}, topic retailnetwork.product-content.events
+  pricing             group {{ .Values.config.pricingConsumerGroup }}, topic retailnetwork.pricing.events
+
+{{- if .Values.rebuild.enabled }}
+The rebuild Job (cmd/rebuild, ADR 0003 S5) is ENABLED for this release: it
+seeds ProductView and CategoryView from the producers' snapshot reads, once.
+Watch it to completion, then set rebuild.enabled=false on the next upgrade:
+  kubectl --namespace {{ .Release.Namespace }} logs job/{{ include "product-discovery.fullname" . }}-rebuild -f
+{{- else }}
+cmd/rebuild (the one-shot snapshot backfill) is NOT deployed: it is an ops job,
+not an always-on workload. See docs/operations/runbook.md for how to run it
+(one helm upgrade with rebuild.enabled=true plus the three
+rebuild.sources.* URLs, or operator-side with the same image).
+{{- end }}

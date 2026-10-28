@@ -1,0 +1,37 @@
+# Used by `helm lint` / `ct lint`: every optional value and component set at
+# once (api + HPA + gateway + ingress + the rebuild Job + every optional
+# config.* value).
+database:
+  url: "postgres://u@example.invalid:5432/db"
+  migrationsUrl: "postgres://u@example.invalid:5432/direct"
+  existingSecretKey: "DATABASE_URL"
+  migrationsExistingSecretKey: "MIGRATIONS_DATABASE_URL"
+kafka:
+  brokers: "kafka.example.invalid:9092"
+config:
+  logLevel: "debug"
+  priceBandEdges: "2500,5000,10000,25000"
+  shutdownDrainDelay: "5s"
+  offerAvailabilityConsumerGroup: "product-discovery-offer-availability"
+  productContentConsumerGroup: "product-discovery-product-content"
+  pricingConsumerGroup: "product-discovery-pricing"
+rebuild:
+  enabled: true
+  sources:
+    offerAvailabilityUrl: "http://offer-availability.example.invalid"
+    pricingUrl: "http://pricing.example.invalid"
+    productContentUrl: "http://product-content.example.invalid"
+autoscaling:
+  api:
+    enabled: true
+ingress:
+  enabled: true
+gatewayApi:
+  enabled: true
+  parentRefs:
+    - name: warehouse-gateway
+      namespace: kong
+      sectionName: http
+  hosts:
+    - path: /api/product-discovery
+      pathType: PathPrefix

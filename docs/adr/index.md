@@ -7,3 +7,4 @@
 | [0003](./0003-consumed-contracts-and-rebuild.md) | Consumed contracts, per-key guards and the snapshot rebuild | Accepted (2026-10-25) |
 | [0004](./0004-cloudevents-envelope-and-type-catalogue.md) | CloudEvents envelope and type catalogue | Accepted (2026-10-25) |
 | [0005](./0005-fleet-observability-standard.md) | Adopt the fleet observability standard (logs, metrics, traces) | Accepted (2026-10-26) |
+| [0006](./0006-rebuild-as-default-off-helm-job.md) | The rebuild binary ships as an optional, default-off Helm Job | Accepted (2026-10-27) |
