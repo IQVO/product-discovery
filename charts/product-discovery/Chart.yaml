@@ -1,0 +1,12 @@
+apiVersion: v2
+name: product-discovery
+description: Product Discovery - the read side of browsing and search (ProductView and CategoryView projections, full-text search, facets); consumes offer-availability, product-content and pricing events and publishes nothing
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/IQVO/product-discovery
+keywords:
+  - ddd
+  - hexagonal-architecture
+  - retail-network
+  - golang

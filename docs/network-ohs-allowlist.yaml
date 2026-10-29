@@ -1,0 +1,23 @@
+# Routes product-discovery's outbound HTTP adapters may call
+# (internal/architecture TestNoInOrgNetworkRoute). The storefront calls only the
+# network's Open Host Service routes (model inbound rows whose caller is
+# "shopper / storefront") plus the storefront's own services; never an in-org or
+# restricted route (ship-to, promises, inventory feeds, policy routes).
+#
+# Every call below is made by cmd/rebuild (the ops-run snapshot rebuild,
+# ADR 0003), never on a user request.
+routes:
+  - {service: offer-availability, method: GET, path: /catalog, kind: ohs}
+  - {service: offer-availability, method: GET, path: /listings, kind: ops-exception, note: "listing availability has no storefront OHS read; in-org read allowed on the ops-only rebuild path"}
+  - {service: pricing, method: GET, path: /item-prices, kind: storefront}
+  - {service: product-content, method: GET, path: /product-contents, kind: storefront}
+  - {service: product-content, method: GET, path: /categories, kind: storefront}
+
+# Fragments no outbound route may ever contain.
+forbidden:
+  - ship-to
+  - /promises
+  - ":confirm"
+  - ":cancel"
+  - /inventory-feeds
+  - /policies

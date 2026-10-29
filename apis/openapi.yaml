@@ -1,0 +1,358 @@
+openapi: 3.0.3
+info:
+  title: Product Discovery API
+  version: 1.0.0
+  contact:
+    name: product-discovery maintainers
+    url: https://github.com/IQVO/product-discovery
+  description: >-
+    REST contract of the product-discovery bounded context of the
+    digital storefront (storefront model, contexts[product-discovery].rest).
+    Discovery is
+    the read side of browsing and search (no aggregate in v1): ProductView
+    per catalogue item (title, flags, content, category path, list and
+    effective price, inStock, purchasable) and CategoryView (tree plus
+    purchasable counts), fed by events from offer-availability,
+    product-content and pricing. Search ranks title (A), category names (A),
+    attributes (B) and description (C) in a PostgreSQL tsvector with a GIN
+    index, with pg_trgm similarity as the typo fallback; facets are category,
+    price band and in-stock; product-type queries also return category
+    suggestions. Errors are RFC 9457 problem details
+    (application/problem+json); this read-only surface uses not-found (404)
+    and validation-failed (422). No authentication. A catalogue item the item master
+    has not announced yet (a stub row) is invisible: GET /products/{id} answers
+    404 for it and search never lists it. The category path of a product is
+    joined from the CategoryView at query time, so a category rename shows at
+    once without re-indexing products.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Products
+    description: Search and read ProductView projections.
+  - name: Categories
+    description: Browse the CategoryView tree.
+paths:
+  /products:
+    get:
+      tags: [Products]
+      operationId: searchProducts
+      summary: Search and filter purchasable products
+      description: >-
+        SearchProducts over the ProductView projection. q runs full-text
+        search (tsvector weights title A, category names A, attributes B,
+        description C) with a pg_trgm similarity fallback for typos; filters
+        combine with AND. Product-type queries also return category
+        suggestions. Keyset pagination via after.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: inStock
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: priceMin
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+          description: Effective price lower bound in minor units.
+        - name: priceMax
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+          description: Effective price upper bound in minor units.
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [relevance, price-asc, price-desc, title]
+        - name: after
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: The matching products, with facets and category suggestions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSearchResult'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /products/{catalogItemId}:
+    get:
+      tags: [Products]
+      operationId: getProduct
+      summary: Get one product view
+      description: >-
+        GetProduct, the full ProductView of one catalogue item for the product
+        page (SSR renders this in one call; delivery dates are loaded
+        asynchronously afterwards by the BFF).
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: The product view.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductView'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /categories:
+    get:
+      tags: [Categories]
+      operationId: listCategories
+      summary: Get the category tree with purchasable counts
+      description: >-
+        ListCategories, the CategoryView: tree plus purchasable counts per
+        category.
+      responses:
+        '200':
+          description: The category tree.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryViewList'
+components:
+  parameters:
+    CatalogItemId:
+      name: catalogItemId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    NotFound:
+      description: not-found.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: validation-failed (invalid query parameter).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          description: Problem type slug, for example validation-failed.
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+    Money:
+      type: object
+      required: [amountMinor, currency]
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+    Attribute:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        unit:
+          type: string
+          nullable: true
+    Media:
+      type: object
+      required: [mediaId, url, altText, role]
+      properties:
+        mediaId:
+          type: string
+        url:
+          type: string
+          format: uri
+        altText:
+          type: string
+        role:
+          type: string
+          enum: [PRIMARY, GALLERY]
+    ProductView:
+      type: object
+      required: [catalogItemId, title, inStock, purchasable]
+      properties:
+        catalogItemId:
+          type: string
+        title:
+          type: string
+          description: The item master's title (offer-availability owns it).
+        hazmat:
+          type: boolean
+        fragile:
+          type: boolean
+        description:
+          type: string
+        bullets:
+          type: array
+          items:
+            type: string
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attribute'
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/Media'
+        categoryId:
+          type: string
+          description: The item's primary category, when its content names one.
+        categoryPath:
+          type: array
+          description: Category names from the root to the item's primary category.
+          items:
+            type: string
+        listPrice:
+          $ref: '#/components/schemas/Money'
+        effectivePrice:
+          $ref: '#/components/schemas/Money'
+        inStock:
+          type: boolean
+          description: At least one LIVE listing with availableQty > 0.
+        purchasable:
+          type: boolean
+          description: Item ACTIVE, content PUBLISHED, price ACTIVE and in stock. An unpurchasable item is shown as currently unavailable; buying out-of-stock is impossible in this network.
+    ProductHit:
+      type: object
+      required: [catalogItemId, title, inStock, purchasable]
+      properties:
+        catalogItemId:
+          type: string
+        title:
+          type: string
+        effectivePrice:
+          $ref: '#/components/schemas/Money'
+        primaryMedia:
+          $ref: '#/components/schemas/Media'
+        categoryId:
+          type: string
+        categoryPath:
+          type: array
+          items:
+            type: string
+        inStock:
+          type: boolean
+        purchasable:
+          type: boolean
+    Facet:
+      type: object
+      required: [name, values]
+      properties:
+        name:
+          type: string
+          description: category, price-band or in-stock.
+        values:
+          type: array
+          items:
+            type: object
+            required: [value, count]
+            properties:
+              value:
+                type: string
+              count:
+                type: integer
+                minimum: 0
+    CategorySuggestion:
+      type: object
+      required: [categoryId, name]
+      properties:
+        categoryId:
+          type: string
+        name:
+          type: string
+    ProductSearchResult:
+      type: object
+      required: [hits, facets]
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductHit'
+        facets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Facet'
+        categorySuggestions:
+          type: array
+          description: Suggested categories for product-type queries.
+          items:
+            $ref: '#/components/schemas/CategorySuggestion'
+        next:
+          type: string
+          nullable: true
+          description: Opaque keyset cursor; pass it as `after` for the next page. Null on the last page.
+    CategoryView:
+      type: object
+      required: [categoryId, name, path, purchasableCount]
+      properties:
+        categoryId:
+          type: string
+        parentId:
+          type: string
+          nullable: true
+        name:
+          type: string
+        path:
+          type: string
+        purchasableCount:
+          type: integer
+          minimum: 0
+    CategoryViewList:
+      type: object
+      required: [version, categories]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryView'

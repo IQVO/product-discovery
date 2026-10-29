@@ -1,0 +1,656 @@
+asyncapi: 3.0.0
+info:
+  title: product-discovery consumed events
+  version: 1.0.0
+  contact:
+    name: product-discovery maintainers
+    url: https://github.com/IQVO/product-discovery
+    email: product-discovery@iqvo.example.com
+  license:
+    name: UNLICENSED
+  tags:
+    - name: product-discovery
+      description: The product-discovery bounded context (retail network, storefront tier).
+    - name: consumed
+      description: Events produced by other contexts that this service folds into its read models.
+  description: |-
+    Consumed-event notes for the **product-discovery** bounded context (read side, no aggregate, ADR 0001, ADR 0003). The service **publishes nothing**: `publishes: []` in the model, so there is no outbox, no relay and no `retailnetwork.product-discovery.events` topic. This file records the shape of the eleven events it consumes; each producer's own AsyncAPI is authoritative, unknown fields are ignored (tolerant decoding), and only the fields this service reads are listed.
+
+    **Consumed.** From offer-availability (`com.retailnetwork.commerce.offer-availability.<entity>.<Event>`): CatalogItemCreated, CatalogItemDiscontinued, ListingCreated, ListingAvailabilityChanged, ListingSuppressed, ListingRestored. From product-content (`com.retailnetwork.storefront.product-content.<entity>.<Event>`): ProductContentPublished, ProductContentRetired, CategoryTreePublished. From pricing (`com.retailnetwork.storefront.pricing.itemprice.<Event>`): ItemPriceChanged, ItemPriceWithdrawn. Three consumer groups, one per topic, each named by a mandatory environment variable.
+
+    **Processing.** CloudEvents 1.0 structured mode. Idempotent on the CloudEvents `id` (inbox table written in the same transaction as the projection), dispatch on the full `type` string, unknown types ignored, undecodable or unfoldable messages dead-lettered. Per-key monotonic guards on top of the inbox: listing `asOf`, content `revision`, price `version`, category tree `version`. A fact for an item the item master has not announced yet creates an invisible stub row that CatalogItemCreated completes (ADR 0002).
+servers:
+  production:
+    host: '{brokers}'
+    protocol: kafka
+    description: Retail-network Kafka broker (host supplied by the deployment environment via KAFKA_BROKERS).
+    variables:
+      brokers:
+        default: kafka.retail-network.internal:9092
+defaultContentType: application/cloudevents+json
+channels:
+  offerAvailabilityEvents:
+    address: retailnetwork.offer-availability.events
+    title: offer-availability integration topic (consumed)
+    description: Produced by offer-availability (Conformist). Key = catalogItemId for item events, listingId for listing events.
+    messages:
+      CatalogItemCreated:
+        $ref: '#/components/messages/CatalogItemCreated'
+      CatalogItemDiscontinued:
+        $ref: '#/components/messages/CatalogItemDiscontinued'
+      ListingCreated:
+        $ref: '#/components/messages/ListingCreated'
+      ListingAvailabilityChanged:
+        $ref: '#/components/messages/ListingAvailabilityChanged'
+      ListingSuppressed:
+        $ref: '#/components/messages/ListingSuppressed'
+      ListingRestored:
+        $ref: '#/components/messages/ListingRestored'
+  productContentEvents:
+    address: retailnetwork.product-content.events
+    title: product-content integration topic (consumed)
+    description: Produced by product-content (Conformist). Key = catalogItemId for content events, the tree id for CategoryTreePublished.
+    messages:
+      ProductContentPublished:
+        $ref: '#/components/messages/ProductContentPublished'
+      ProductContentRetired:
+        $ref: '#/components/messages/ProductContentRetired'
+      CategoryTreePublished:
+        $ref: '#/components/messages/CategoryTreePublished'
+  pricingEvents:
+    address: retailnetwork.pricing.events
+    title: pricing integration topic (consumed)
+    description: Produced by pricing (Conformist). Key = catalogItemId.
+    messages:
+      ItemPriceChanged:
+        $ref: '#/components/messages/ItemPriceChanged'
+      ItemPriceWithdrawn:
+        $ref: '#/components/messages/ItemPriceWithdrawn'
+operations:
+  receiveOfferAvailabilityEvents:
+    action: receive
+    title: Receive offer-availability events
+    summary: Fold the six item and listing events into ProductView.
+    description: Consumer group from OFFER_AVAILABILITY_CONSUMER_GROUP. ListingSuppressed and ListingRestored carry only listingId; the item is found through the ListingItemMap learned from ListingCreated.
+    tags:
+      - name: consumed
+    channel:
+      $ref: '#/channels/offerAvailabilityEvents'
+    messages:
+      - $ref: '#/channels/offerAvailabilityEvents/messages/CatalogItemCreated'
+      - $ref: '#/channels/offerAvailabilityEvents/messages/CatalogItemDiscontinued'
+      - $ref: '#/channels/offerAvailabilityEvents/messages/ListingCreated'
+      - $ref: '#/channels/offerAvailabilityEvents/messages/ListingAvailabilityChanged'
+      - $ref: '#/channels/offerAvailabilityEvents/messages/ListingSuppressed'
+      - $ref: '#/channels/offerAvailabilityEvents/messages/ListingRestored'
+  receiveProductContentEvents:
+    action: receive
+    title: Receive product-content events
+    summary: Fold content and the category tree into ProductView and CategoryView.
+    description: Consumer group from PRODUCT_CONTENT_CONSUMER_GROUP.
+    tags:
+      - name: consumed
+    channel:
+      $ref: '#/channels/productContentEvents'
+    messages:
+      - $ref: '#/channels/productContentEvents/messages/ProductContentPublished'
+      - $ref: '#/channels/productContentEvents/messages/ProductContentRetired'
+      - $ref: '#/channels/productContentEvents/messages/CategoryTreePublished'
+  receivePricingEvents:
+    action: receive
+    title: Receive pricing events
+    summary: Fold list and effective prices into ProductView.
+    description: Consumer group from PRICING_CONSUMER_GROUP.
+    tags:
+      - name: consumed
+    channel:
+      $ref: '#/channels/pricingEvents'
+    messages:
+      - $ref: '#/channels/pricingEvents/messages/ItemPriceChanged'
+      - $ref: '#/channels/pricingEvents/messages/ItemPriceWithdrawn'
+components:
+  messages:
+    CatalogItemCreated:
+      name: CatalogItemCreated
+      title: CatalogItemCreated
+      summary: The item master announced a catalogue item.
+      description: '`type` = `com.retailnetwork.commerce.offer-availability.catalogitem.CatalogItemCreated`; subject and key = catalogItemId. Completes the ProductView row (title, hazmat, fragile, item ACTIVE); a row created earlier by an out-of-order fact is a stub until this arrives. The product type is taken from here, there is no detection.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/CatalogItemCreatedData'
+      examples:
+        - name: catalogItemCreated
+          summary: A kettle was created in the item master.
+          payload:
+            specversion: '1.0'
+            id: 0c1a4e2b-6d3f-4a8e-9b71-2f5d8c9e0a11
+            source: /retailnetwork/offer-availability
+            type: com.retailnetwork.commerce.offer-availability.catalogitem.CatalogItemCreated
+            subject: CI-004512
+            time: '2026-10-22T09:00:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:offer-availability:events:CatalogItemCreated:v1
+            data:
+              catalogItemId: CI-004512
+              title: Steel kettle 1.7 l
+              hazmat: false
+              fragile: false
+    CatalogItemDiscontinued:
+      name: CatalogItemDiscontinued
+      title: CatalogItemDiscontinued
+      summary: The item master discontinued a catalogue item.
+      description: '`type` = `com.retailnetwork.commerce.offer-availability.catalogitem.CatalogItemDiscontinued`; subject and key = catalogItemId. The item becomes DISCONTINUED: never purchasable and no longer listed in search.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/CatalogItemRef'
+      examples:
+        - name: catalogItemDiscontinued
+          summary: The kettle was discontinued.
+          payload:
+            specversion: '1.0'
+            id: 6e0b7d33-1a9c-4c52-8f04-b3c7a1d2e9f0
+            source: /retailnetwork/offer-availability
+            type: com.retailnetwork.commerce.offer-availability.catalogitem.CatalogItemDiscontinued
+            subject: CI-004512
+            time: '2026-10-22T18:00:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:offer-availability:events:CatalogItemDiscontinued:v1
+            data:
+              catalogItemId: CI-004512
+    ListingCreated:
+      name: ListingCreated
+      title: ListingCreated
+      summary: A node offers a catalogue item.
+      description: '`type` = `com.retailnetwork.commerce.offer-availability.listing.ListingCreated`; subject and key = listingId. Adds a LIVE listing row without quantity and teaches the ListingItemMap (listingId to catalogItemId) that ListingSuppressed and ListingRestored need.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ListingCreatedData'
+      examples:
+        - name: listingCreated
+          summary: Node NODE-VWS-FC01 offers the kettle.
+          payload:
+            specversion: '1.0'
+            id: 9d4f1b70-3e2a-4b6c-a8d5-7c0e1f2a3b44
+            source: /retailnetwork/offer-availability
+            type: com.retailnetwork.commerce.offer-availability.listing.ListingCreated
+            subject: LST-000184
+            time: '2026-10-22T09:05:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:offer-availability:events:ListingCreated:v1
+            data:
+              listingId: LST-000184
+              catalogItemId: CI-004512
+              nodeId: NODE-VWS-FC01
+    ListingAvailabilityChanged:
+      name: ListingAvailabilityChanged
+      title: ListingAvailabilityChanged
+      summary: A node's claimed quantity of an item changed.
+      description: '`type` = `com.retailnetwork.commerce.offer-availability.listing.ListingAvailabilityChanged`; subject and key = listingId. Sets the listing quantity when `asOf` is strictly newer than the listing''s last `asOf` (per-listing monotonic guard); inStock and purchasable are recomputed. A listing not yet known is added LIVE.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ListingAvailabilityChangedData'
+      examples:
+        - name: listingAvailabilityChanged
+          summary: 120 units are available at the node.
+          payload:
+            specversion: '1.0'
+            id: 5b0f8a52-3c1e-4d7a-9f4e-2a6d1c9e7b31
+            source: /retailnetwork/offer-availability
+            type: com.retailnetwork.commerce.offer-availability.listing.ListingAvailabilityChanged
+            subject: LST-000184
+            time: '2026-10-22T14:05:12Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:offer-availability:events:ListingAvailabilityChanged:v1
+            data:
+              listingId: LST-000184
+              catalogItemId: CI-004512
+              nodeId: NODE-VWS-FC01
+              availableQty: 120
+              asOf: '2026-10-22T14:00:00Z'
+    ListingSuppressed:
+      name: ListingSuppressed
+      title: ListingSuppressed
+      summary: A listing was suppressed.
+      description: '`type` = `com.retailnetwork.commerce.offer-availability.listing.ListingSuppressed`; subject and key = listingId. Carries only the listingId: the item comes from the ListingItemMap. A suppressed listing never counts towards inStock. A suppress for a listing never seen is acknowledged and counted, not retried (ADR 0002).'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ListingRef'
+      examples:
+        - name: listingSuppressed
+          summary: The node was suspended.
+          payload:
+            specversion: '1.0'
+            id: 2c7e5d18-9b4a-4f60-8e3d-a1b2c3d4e5f6
+            source: /retailnetwork/offer-availability
+            type: com.retailnetwork.commerce.offer-availability.listing.ListingSuppressed
+            subject: LST-000184
+            time: '2026-10-22T15:00:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:offer-availability:events:ListingSuppressed:v1
+            data:
+              listingId: LST-000184
+              nodeId: NODE-VWS-FC01
+              reason: NODE_NOT_SELLABLE
+    ListingRestored:
+      name: ListingRestored
+      title: ListingRestored
+      summary: A suppressed listing is LIVE again.
+      description: '`type` = `com.retailnetwork.commerce.offer-availability.listing.ListingRestored`; subject and key = listingId. Carries only the listingId: the item comes from the ListingItemMap.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ListingRef'
+      examples:
+        - name: listingRestored
+          summary: The node is active again.
+          payload:
+            specversion: '1.0'
+            id: 8f1d3a65-2b7c-4e90-b4a6-d5e6f7a8b9c0
+            source: /retailnetwork/offer-availability
+            type: com.retailnetwork.commerce.offer-availability.listing.ListingRestored
+            subject: LST-000184
+            time: '2026-10-22T16:00:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:offer-availability:events:ListingRestored:v1
+            data:
+              listingId: LST-000184
+              nodeId: NODE-VWS-FC01
+    ProductContentPublished:
+      name: ProductContentPublished
+      title: ProductContentPublished
+      summary: A revision of an item's content was published.
+      description: '`type` = `com.retailnetwork.storefront.product-content.productcontent.ProductContentPublished`; subject and key = catalogItemId. Replaces the content (description, bullets, attributes, media, primary category id) when `revision` is above the last applied one; the row is re-indexed.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ProductContentPublishedData'
+      examples:
+        - name: productContentPublished
+          summary: Revision 2 of the kettle's content.
+          payload:
+            specversion: '1.0'
+            id: 7d2e9c41-5f6b-4a3e-9c2d-1e8f0a5b6c7d
+            source: /retailnetwork/product-content
+            type: com.retailnetwork.storefront.product-content.productcontent.ProductContentPublished
+            subject: CI-004512
+            time: '2026-10-22T14:03:11Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:product-content:events:ProductContentPublished:v1
+            data:
+              catalogItemId: CI-004512
+              revision: 2
+              description: A 1.7 litre stainless steel kettle.
+              bullets:
+                - Auto shut-off
+              attributes:
+                - name: capacity
+                  value: '1.7'
+                  unit: l
+              media:
+                - mediaId: med-01
+                  url: https://static.example.invalid/CI-004512/main.jpg
+                  altText: Kettle, side view
+                  role: PRIMARY
+              primaryCategoryId: cat-kettles
+    ProductContentRetired:
+      name: ProductContentRetired
+      title: ProductContentRetired
+      summary: An item's published content was retired.
+      description: '`type` = `com.retailnetwork.storefront.product-content.productcontent.ProductContentRetired`; subject and key = catalogItemId. The content is no longer PUBLISHED: the item leaves search and is not purchasable. A retire of a revision older than the one applied is stale.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ContentRetiredData'
+      examples:
+        - name: productContentRetired
+          summary: The kettle's content was retired.
+          payload:
+            specversion: '1.0'
+            id: 1b6f0f6e-2c43-4e0b-8a10-6f6d3a9c5e21
+            source: /retailnetwork/product-content
+            type: com.retailnetwork.storefront.product-content.productcontent.ProductContentRetired
+            subject: CI-004512
+            time: '2026-10-22T16:30:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:product-content:events:ProductContentRetired:v1
+            data:
+              catalogItemId: CI-004512
+              revision: 2
+    CategoryTreePublished:
+      name: CategoryTreePublished
+      title: CategoryTreePublished
+      summary: The category tree was published under a new version.
+      description: '`type` = `com.retailnetwork.storefront.product-content.categorytree.CategoryTreePublished`; subject and key = the tree id. Carries the whole tree; CategoryView is replaced when `version` is above the last applied one. Product rows keep only a category id, so nothing is re-indexed.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/CategoryTreePublishedData'
+      examples:
+        - name: categoryTreePublished
+          summary: Version 5 of the tree.
+          payload:
+            specversion: '1.0'
+            id: 4a8c2d90-7e15-4b3c-b6f2-0c9d8e7a1b35
+            source: /retailnetwork/product-content
+            type: com.retailnetwork.storefront.product-content.categorytree.CategoryTreePublished
+            subject: main
+            time: '2026-10-22T10:00:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:product-content:events:CategoryTreePublished:v1
+            data:
+              version: 5
+              categories:
+                - categoryId: cat-home
+                  name: Home
+                  path: Home
+                - categoryId: cat-kettles
+                  parentId: cat-home
+                  name: Kettles
+                  path: Home/Kettles
+    ItemPriceChanged:
+      name: ItemPriceChanged
+      title: ItemPriceChanged
+      summary: The effective price of an item changed.
+      description: '`type` = `com.retailnetwork.storefront.pricing.itemprice.ItemPriceChanged`; subject and key = catalogItemId. Sets currency, list price and effective price when `version` is above the last applied one; price ACTIVE.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ItemPriceChangedData'
+      examples:
+        - name: itemPriceChanged
+          summary: The kettle is on sale.
+          payload:
+            specversion: '1.0'
+            id: 7a2c9e41-5f0b-4c3d-9e6a-1b8d4f0c2a55
+            source: /retailnetwork/pricing
+            type: com.retailnetwork.storefront.pricing.itemprice.ItemPriceChanged
+            subject: CI-004512
+            time: '2026-10-24T09:00:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:pricing:events:ItemPriceChanged:v1
+            data:
+              catalogItemId: CI-004512
+              currency: BRL
+              listPriceMinor: 12990
+              effectivePriceMinor: 9990
+              saleEndsAt: '2026-10-31T23:59:59Z'
+              version: 7
+    ItemPriceWithdrawn:
+      name: ItemPriceWithdrawn
+      title: ItemPriceWithdrawn
+      summary: The price of an item was withdrawn.
+      description: '`type` = `com.retailnetwork.storefront.pricing.itemprice.ItemPriceWithdrawn`; subject and key = catalogItemId. The price is WITHDRAWN (not purchasable, no price shown) unless a newer version was already applied.'
+      contentType: application/cloudevents+json
+      tags:
+        - name: consumed
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/Envelope'
+          - type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ItemPriceWithdrawnData'
+      examples:
+        - name: itemPriceWithdrawn
+          summary: The kettle's price was withdrawn.
+          payload:
+            specversion: '1.0'
+            id: 3e9a1c77-4d28-4b5f-8a60-c2d1e0f9a8b7
+            source: /retailnetwork/pricing
+            type: com.retailnetwork.storefront.pricing.itemprice.ItemPriceWithdrawn
+            subject: CI-004512
+            time: '2026-10-24T09:30:00Z'
+            datacontenttype: application/json
+            dataschema: urn:retailnetwork:pricing:events:ItemPriceWithdrawn:v1
+            data:
+              catalogItemId: CI-004512
+              version: 8
+  schemas:
+    Instant:
+      type: string
+      format: date-time
+    Envelope:
+      type: object
+      required: [specversion, id, source, type, subject, time, datacontenttype, dataschema, data]
+      properties:
+        specversion:
+          type: string
+          const: '1.0'
+        id:
+          type: string
+          description: The idempotency key of the inbox.
+        source:
+          type: string
+        type:
+          type: string
+        subject:
+          type: string
+        time:
+          $ref: '#/components/schemas/Instant'
+        datacontenttype:
+          type: string
+          const: application/json
+        dataschema:
+          type: string
+        data:
+          type: object
+    CatalogItemRef:
+      type: object
+      required: [catalogItemId]
+      properties:
+        catalogItemId:
+          type: string
+    ListingRef:
+      type: object
+      required: [listingId]
+      properties:
+        listingId:
+          type: string
+        nodeId:
+          type: string
+        reason:
+          type: string
+    CatalogItemCreatedData:
+      type: object
+      required: [catalogItemId, title]
+      properties:
+        catalogItemId:
+          type: string
+        title:
+          type: string
+        hazmat:
+          type: boolean
+        fragile:
+          type: boolean
+    ListingCreatedData:
+      type: object
+      required: [listingId, catalogItemId, nodeId]
+      properties:
+        listingId:
+          type: string
+        catalogItemId:
+          type: string
+        nodeId:
+          type: string
+    ListingAvailabilityChangedData:
+      type: object
+      required: [listingId, catalogItemId, nodeId, availableQty, asOf]
+      properties:
+        listingId:
+          type: string
+        catalogItemId:
+          type: string
+        nodeId:
+          type: string
+        availableQty:
+          type: integer
+          minimum: 0
+        asOf:
+          $ref: '#/components/schemas/Instant'
+    ContentRetiredData:
+      type: object
+      required: [catalogItemId]
+      properties:
+        catalogItemId:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+    ProductContentPublishedData:
+      type: object
+      required: [catalogItemId, revision]
+      properties:
+        catalogItemId:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        description:
+          type: string
+        bullets:
+          type: array
+          items:
+            type: string
+        attributes:
+          type: array
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+              unit:
+                type: string
+        media:
+          type: array
+          items:
+            type: object
+            required: [mediaId, url, altText, role]
+            properties:
+              mediaId:
+                type: string
+              url:
+                type: string
+              altText:
+                type: string
+              role:
+                type: string
+                enum: [PRIMARY, GALLERY]
+        primaryCategoryId:
+          type: string
+    CategoryTreePublishedData:
+      type: object
+      required: [version, categories]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        categories:
+          type: array
+          items:
+            type: object
+            required: [categoryId, name, path]
+            properties:
+              categoryId:
+                type: string
+              parentId:
+                type: string
+              name:
+                type: string
+              path:
+                type: string
+    ItemPriceChangedData:
+      type: object
+      required: [catalogItemId, currency, listPriceMinor, effectivePriceMinor, version]
+      properties:
+        catalogItemId:
+          type: string
+        currency:
+          type: string
+        listPriceMinor:
+          type: integer
+          format: int64
+        effectivePriceMinor:
+          type: integer
+          format: int64
+        saleEndsAt:
+          $ref: '#/components/schemas/Instant'
+        version:
+          type: integer
+          minimum: 1
+    ItemPriceWithdrawnData:
+      type: object
+      required: [catalogItemId, version]
+      properties:
+        catalogItemId:
+          type: string
+        version:
+          type: integer
+          minimum: 1
