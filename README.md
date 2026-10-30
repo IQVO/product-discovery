@@ -1,5 +1,7 @@
 # product-discovery
 
+[![CI](https://github.com/IQVO/product-discovery/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/IQVO/product-discovery/actions/workflows/ci.yml?query=branch%3Adevelop) [![coverage gate](https://img.shields.io/badge/coverage%20gate-90%25-brightgreen)](https://github.com/IQVO/product-discovery/blob/develop/Makefile) [![Go](https://img.shields.io/badge/go-1.27.3-00ADD8?logo=go&logoColor=white)](https://github.com/IQVO/product-discovery/blob/develop/go.mod) [![release](https://img.shields.io/github/v/release/IQVO/product-discovery?sort=semver)](https://github.com/IQVO/product-discovery/releases) [![docs](https://img.shields.io/badge/docs-iqvo.github.io-blue)](https://iqvo.github.io/product-discovery/) [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/IQVO/product-discovery/blob/develop/LICENSE)
+
 Storefront (e-commerce) domain of the retail-network organisation, bounded context **Product Discovery** (Supporting, storefront tier).
 
 The read side of browsing and search: one ProductView per catalogue item (title, flags, content, category path, list and effective price, inStock, purchasable) and one CategoryView (tree plus purchasable counts), fed by events from offer-availability, product-content and pricing, searched with PostgreSQL full-text search and pg_trgm (D9), behind a port so a dedicated engine is a later adapter swap.
