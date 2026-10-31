@@ -1,0 +1,70 @@
+---
+id: get-product
+title: "Get one product view"
+description: "GetProduct, the full ProductView of one catalogue item for the product page (SSR renders this in one call; delivery dates are loaded asynchronously afterwards by the BFF)."
+sidebar_label: "Get one product view"
+hide_title: true
+hide_table_of_contents: true
+api: eJzdWG1v28gR/iuDRYGTUErWpbr2IgMFlJzjGnCuju0LcDXcYkQOqU2Wu7zdoWRV0H8vZklJlCU7bb+1n+JwZ+f12XlmtFaMRVCTB3XjXVanHNRjolxFHlk7e5WpiSqI20OVqIxC6nUlh2qiLndHCfCcIK+NgfbLZ01LcDk4S5Aio3FFTaCZSsidj+JVIwkVFgS9u7tb8GQz8gF4rgNo21425hwyMnpBfgUZMgVAT2AcZpQBhpVN595ZVwezAsyZ/BJ9FmC2imbeffjQH6pEVeixJCYvAa+VxZLURLW+XTGVV5lKlJbAKuS5SpSn32rtKVMT9jUlKqRzKlFN1opXlVwO7LUt1GbzKMKhcjZQkPM3o5H8c5iu+07MC01LcSp1lsmyCGNVGZ3GxJ99CXJjfWzRzb5QrMTet4ejGFizoRjLHbv0q8Re+3SOAWeGpMKVlxqzbpw9vH4c3Vbh0clzPEiAscIlBib/XYB4EXouz8kPcIHa4EwbzStwSxtAc38o+uf4zxK5Y2DmnCG0cpZ7LPSB9c7hgf0Tjs9qY4hD5wy9x5XkhqkMp0qZKGT2elYz/Tv3ThYkYitRCzT1iXw3yDvhbSN/6qS2mk/l39bGxKJGhG72pVLTbRAxpJIyjf9tNPFyBFbtjUoUGr6npyjlTuFpK38yEG9OxZE7HwGgaq9FbGvilIpo9IQOsnUZW9nt1cfp7a8qUZfT6+uL21/VYzcxH2Mq5EuKTIXzq1OuvgTt7wJUXpfoV7C9nsByThY0B2hfM0iFg3SviO6t4I10leMaHBp63wq3OnLvytjFvHMM7OLfLzgyfB3WRge+8Tqlb9UbS1db/qit89Khau/JpqvjOnfl9iq1ZSrId4uqLf9xrBJVaqtLKdJo09F7IvcVMpOXdPz9YTr42+P6D5vfqYMiOksryS3lOaWsF/R/F9m2eR/3veeQmTIYwsCRLq+vPl+AlFrbApaa59C2XUOfeAV/hlHEZJcQvm1BqAGm7++vPl8kO5Df/PLu+uruLxc/JYLElFoBQJsJdwfxfghTC7XtWGsIQgcIc7e0gAGadLFZQW13vp7DrF5JCK7mgcsHUZtc02XlQtBRk20GBUu8dP7r8CCPnTFEbTZyMh6NjznZOh7krrbZK2RceTczVP7+26R8qPv2w3t4O/7hT9AqgIwYtQnDZ6iMWvasHRi5DsegbIy93jsHnnIS8NGRNzetE3IdgqmLJA5i9IRlZQgWaHQW4x3kqA1lw1eIf7Pz8tTr2D2G8WiUqBKfmv/98PZtZGzJwUmV2gZGm/4nQT6ruAQYqx0pj+euHWCbhzdXE3XWDmDhbH0w9mwk8eQX2+kw8pSaM1eTszPjUjRzF3jy4+jHkZJpT9vcRT8P4QY/6ZC6OKhOb65kBCAfmvx/PxwNRy3IMOX9IKBalwbZ7m6J2jJqK94kHV/C5Oys0DyvZ8PUlWdXnz7/9ezo9tFcpG4v7u7js/WYsgzlnem7Y3Um74Cy5oE/7QQzXWhGIw/aU+6dZeh1/i5dRibZXgoPR3ofh54C94ed3OjQcBphBkFnJKZm3i2DvHjpH4HQp3PoWQdYFJ4K5PjeF9/3JwcbRkX++XrRizVJIDdYhF27SnY0CQKFJPbIaGtHIU0bS6DtvAl02lY/im7JOZrusSeCytShKwipUEfoJ5BTJisILchyS+THc3Cyq8O2rYodcUTbYgh3TR482q+7YXra78TSTAnx235shd67xt8ODKD3vi8ZRLhxgQtPd5+ugcOCUna+JQq4vPoZtM3oKWm+VMU/2BclBF1qg17mdmxKx6vKQY7GzDD9eg45psTNWrYfixpWmIkjDSc0Xfx8F3JsRb/V5LWsdCY48MS1t/vwQl0UFMT/MIQL751vjLzUWqH3UuPunzdkIZgbOGtEtxe3oQ4UYMcD0BuPxk32jloi9MZv3vSH8LMDrHlOlltLQ5g+RyEf7kIwx2gE0FpX25QyWBFDDyFwPQPvlv3IbnahI7lN4PLiHjrdSmcbQBuWsh6PR+PYuzV3H4ulBfkIa1mshiAj6wHm5ZXhbgPVAb44bSnbz5gH8EaOpVkB65ISCA5wr86TAC9yeBBJZ1OKkHE1g6dBBJE85m0AzdDhApdoO63vkpqppbsWP2eu9Z6X/8d+cWhJTPriWWVQ284G1PDRw7b5S5+fHC7ij4kSzhGh9XqGgX7xZrORz7EuavLwKCuj180Q97BWmY4tKFOTHE2gV/LYu23njz685Od2S7Gr3SY7USpRX2l19LPJ5lGWeMKMfHSkkZmmKVXcuX30C4cw6Y6nLy/u1WbzLyfjeCI=
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/product-discovery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Get one product view"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/products/{catalogItemId}"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+GetProduct, the full ProductView of one catalogue item for the product page (SSR renders this in one call; delivery dates are loaded asynchronously afterwards by the BFF).
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-product.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-product.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-product.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

@@ -1,0 +1,70 @@
+---
+id: search-products
+title: "Search and filter purchasable products"
+description: "SearchProducts over the ProductView projection. q runs full-text search (tsvector weights title A, category names A, attributes B, description C) with a pg_trgm similarity fallback for typos; filters combine with AND. Product-type queries also return category suggestions. Keyset pagination via after."
+sidebar_label: "Search and filter purchasable products"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/product-discovery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Search and filter purchasable products"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/products"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+SearchProducts over the ProductView projection. q runs full-text search (tsvector weights title A, category names A, attributes B, description C) with a pg_trgm similarity fallback for typos; filters combine with AND. Product-type queries also return category suggestions. Keyset pagination via after.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./search-products.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./search-products.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./search-products.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      
