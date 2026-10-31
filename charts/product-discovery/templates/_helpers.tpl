@@ -22,6 +22,15 @@ Create a default fully qualified app name.
 {{- end }}
 
 {{/*
+Fully qualified name of the A2A agent Deployment/Service/HTTPRoute (<release>-a2a,
+ADR 0007). The base is trimmed so the suffix never pushes the name past the
+63-character DNS label limit.
+*/}}
+{{- define "product-discovery.a2aFullname" -}}
+{{- printf "%s-a2a" (include "product-discovery.fullname" . | trunc 59 | trimSuffix "-") }}
+{{- end }}
+
+{{/*
 Chart name and version as used by the chart label.
 */}}
 {{- define "product-discovery.chart" -}}
@@ -191,6 +200,27 @@ names the missing value (cmd/rebuild exits without it).
 {{- end -}}
 
 {{/*
+The A2A agent (cmd/a2a, ADR 0007) listens on a2a.httpAddr; the container port,
+the probes and the Service must agree, or the pod is never ready. The agent
+needs DATABASE_URL like the api (checked by requireDatabase, which the api
+Deployment always includes).
+*/}}
+{{- define "product-discovery.requireA2a" -}}
+{{- if .Values.a2a.enabled -}}
+{{- $port := trimPrefix ":" (regexFind ":[0-9]+$" (toString .Values.a2a.httpAddr)) -}}
+{{- if ne $port (toString .Values.a2a.service.targetPort) -}}
+{{- fail (printf "a2a.httpAddr is %q but a2a.service.targetPort is %v: the container port, the probes and the Service must agree." .Values.a2a.httpAddr .Values.a2a.service.targetPort) -}}
+{{- end -}}
+{{- if and .Values.a2a.route.enabled (not .Values.a2a.route.path) -}}
+{{- fail "a2a.route.path is required when a2a.route.enabled is true: the gateway needs the prefix to route and rewrite to /." -}}
+{{- end -}}
+{{- if and .Values.a2a.agentUrl (not (regexMatch "^https?://[^/]+" (toString .Values.a2a.agentUrl))) -}}
+{{- fail (printf "a2a.agentUrl is %q: it must be an absolute http(s) URL (cmd/a2a refuses to boot otherwise)." .Values.a2a.agentUrl) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Every render-time requirement of the real runtime, in one include. The api
 Deployment (always rendered) includes it, so a mis-set release fails
 `helm template` / `helm install`.
@@ -203,4 +233,5 @@ Deployment (always rendered) includes it, so a mis-set release fails
 {{- include "product-discovery.requireGracePeriod" . -}}
 {{- include "product-discovery.requireHttpPort" . -}}
 {{- include "product-discovery.requireRebuild" . -}}
+{{- include "product-discovery.requireA2a" . -}}
 {{- end -}}
