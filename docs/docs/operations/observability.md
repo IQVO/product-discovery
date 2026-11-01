@@ -76,7 +76,7 @@ carry a context; plain `slog.Info` lines at boot and shutdown have none). Probe 
 | Where | Level | `msg` | Fields |
 | --- | --- | --- | --- |
 | Access log (`cmd/api`) | INFO / WARN (4xx) / ERROR (5xx) | `http request` | `method`, `route` (the pattern, never the raw path, which holds ids), `status`, `duration_ms`, `bytes`, `request_id`, `trace_id`, `span_id` |
-| REST | ERROR | `request failed` (an unmapped error, answered as 500 `internal-error` with a fixed detail) | `error`, `method`, `path` |
+| REST | ERROR | `request failed` (an unmapped error, answered as 500 `internal-error` with a fixed detail) | `error`, `method`, `path` (CR and LF are stripped from `error` and `path` before logging, `logsafe.go`) |
 | A2A | ERROR | `a2a skill failed` | `error` |
 | Boot | INFO | `telemetry configured` | `service_name`, `otlp_endpoint` |
 | Boot | INFO | `postgres adapters configured` (api) / `postgres read side configured` (agent) | none |

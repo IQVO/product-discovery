@@ -17,7 +17,7 @@ this page is a captured run.
 | --- | --- | --- |
 | Unit, domain | 56 top-level test functions in 4 packages (`productview` 24, `search` 20, `categoryview` 10, `shared` 2) | `make test` |
 | Unit, application | 23 in `internal/application/usecases` (6 files, including concurrency and metrics) | `make test` |
-| Unit and httptest, adapters and binaries | `inbound/http` 18, `inbound/kafka` 32, `inbound/a2a` 20, `inbound/requestlog` 4, `kafka/cloudevents` 6, `outbound/kafka` 4, `outbound/memory` 1 (the repository contract), `outbound/sources` 7, `outbound/telemetry` 11, `bootretry` 6, `cmd/api` 16, `cmd/a2a` 14, `cmd/rebuild` 6 | `make test` |
+| Unit and httptest, adapters and binaries | `inbound/http` 19, `inbound/kafka` 32, `inbound/a2a` 20, `inbound/requestlog` 4, `kafka/cloudevents` 6, `outbound/kafka` 4, `outbound/memory` 1 (the repository contract), `outbound/sources` 7, `outbound/telemetry` 11, `bootretry` 6, `cmd/api` 16, `cmd/a2a` 14, `cmd/rebuild` 6 | `make test` |
 | Coverage gate | 90 % over `./internal/domain/...,./internal/application/...` (`COVERAGE_THRESHOLD`) | `make coverage` |
 | BDD (godog / Gherkin) | 3 feature files, **18 scenarios** (`search` 8, `folding` 6, `categories` 4), 60 step lines; strict mode | `make bdd` |
 | Integration (testcontainers) | 7 tests behind `//go:build integration` in 8 files: `cmd/api` 3, `cmd/a2a` 1, `cmd/rebuild` 1, `outbound/postgres` 2 (plus one `TestMain` in each package that boots the shared container) | `make integration` |
@@ -159,6 +159,7 @@ make arch-test
 | `lint` | `golangci-lint` v2.14.0, `--timeout=5m` | always |
 | `guide-lint` | `scripts/harness/guide_lint.py` and `test_hook.py`; advisory (`continue-on-error`) | always |
 | `complexity` | golangci-lint with only `gocyclo,gocognit,cyclop,funlen,nestif` (gate 15) plus an informational gocyclo report | always |
+| `file-length` | the `revive` file-length limit (at most 300 lines of code per production Go file, settings in `.golangci.yml`): blocking for the Go files a pull request into `develop` adds or touches; an informational report of the whole backlog otherwise | always |
 | `test` | `go build`, `go vet`, then `make coverage` (90 % gate); uploads `coverage.out` | always |
 | `bdd` | `go test ./... -run TestFeatures -v` | always |
 | `integration` | `go test -tags=integration ./... -race -count=1` | always |
