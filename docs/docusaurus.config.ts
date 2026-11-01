@@ -6,7 +6,7 @@ import type * as OpenApiPlugin from 'docusaurus-plugin-openapi-docs';
 const config: Config = {
   title: 'Product Discovery',
   tagline:
-    'Product Discovery: a Supporting bounded context of the storefront domain (warehouse-systems).',
+    'Search, browse and the purchasable verdict: the Supporting read side of the warehouse-systems storefront.',
   favicon: 'img/favicon.svg',
 
   future: {

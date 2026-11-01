@@ -69,7 +69,7 @@ security scheme (the surface is unauthenticated). The same read use cases back R
 | `search_products` | the query parameters of `GET /products` under the same names: `q`, `categoryId`, `inStock`, `priceMin`, `priceMax`, `sort`, `after`, `limit`, all optional | `Queries.SearchProducts` | `data.search` with `hits`, `facets`, `categorySuggestions`, `next` |
 | `get_product` | `catalogItemId` (required) | `Queries.GetProduct` | `data.product`, the product view |
 
-A request is a message whose first part is a Data part (or a Text part holding the same JSON):
+A request is a JSON-RPC 2.0 `SendMessage` call (header `A2A-Version: 1.0`) on `/` or `/a2a` whose message's first part is a Data part (or a Text part holding the same JSON):
 
 ```json
 {"skill": "search_products", "arguments": {"q": "kettle", "inStock": true, "sort": "price-asc", "limit": 5}}

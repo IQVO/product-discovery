@@ -35,7 +35,7 @@ function HomepageHeader() {
           {siteConfig.title}
         </Heading>
         <p className={styles.heroSubtitle}>{siteConfig.tagline}</p>
-        <p className={styles.heroLead}>TODO-LEAD</p>
+        <p className={styles.heroLead}>Product Discovery is the read side of browsing and search for the storefront: one product view per catalogue item and one category tree, folded from offer-availability, product-content and pricing events and searched with PostgreSQL full-text search and a typo fallback. It joins the three producers into the single purchasable verdict a shopper sees, serves it over REST and A2A, and publishes nothing.</p>
         <div className={styles.buttons}>
           <Link className="button button--primary button--lg" to="/docs/overview/introduction">
             Read the docs
