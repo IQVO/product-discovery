@@ -30,7 +30,7 @@ Watch it to completion, then set rebuild.enabled=false on the next upgrade:
   kubectl --namespace {{ .Release.Namespace }} logs job/{{ include "product-discovery.fullname" . }}-rebuild -f
 {{- else }}
 cmd/rebuild (the one-shot snapshot backfill) is NOT deployed: it is an ops job,
-not an always-on workload. See docs/operations/runbook.md for how to run it
+not an always-on workload. See docs/docs/operations/runbook.md for how to run it
 (one helm upgrade with rebuild.enabled=true plus the three
 rebuild.sources.* URLs, or operator-side with the same image).
 {{- end }}
