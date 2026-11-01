@@ -1,3 +1,10 @@
+---
+id: before-first-release
+title: Before the first release
+sidebar_label: Before the first release
+sidebar_position: 5
+---
+
 # Before the first release: product-discovery
 
 The first merge to `main` runs `docker-publish` and `release`. Two services built from
@@ -12,6 +19,20 @@ the fleet reference). The chart is NOT generated: it is shaped by what the servi
 `charts/<repo>/` and adapt it. References on `origin/develop`:
 `IQVO/pick-face-replenishment` (Kafka consumers, MCP, analytics, frontend) and
 `IQVO/task-interleaving`.
+
+:::note What differs in this repository
+This checklist came with the service template; the parts that differ here, from the code on `develop`:
+
+- The godog features are in `features/*.feature` (3 files) and the runner is `internal/bdd/features_test.go`
+  (`Paths: ../../features`); there is no Go file at the repo root (row 2).
+- `ci.yml` has no `trivy-scan` job (row 3) and no `docs-api-drift` job (row 10); it has `lint`, `complexity`,
+  `test`, `bdd`, `integration`, `mutation-fast`, `api-lint`, `vuln`, `helm-lint`, `chart-tests`, `arch-test`,
+  `guide-lint` (advisory), plus the push-to-`main` jobs `docker-publish` and `release`
+  ([Testing](/docs/development/testing)).
+- The chart's `terminationGracePeriodSeconds` guard is `SHUTDOWN_DRAIN_DELAY + 50 s`, because the service has
+  no outbox relay ([Runbook](/docs/operations/runbook#deploy--upgrade)).
+- Runtime variables are listed per binary in [Configuration](/docs/operations/configuration).
+:::
 
 | # | Item | Done when | Guarded by |
 |---|------|-----------|------------|
