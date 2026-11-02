@@ -1,1 +1,1 @@
-{"parameters":[{"name":"catalogItemId","in":"path","required":true,"schema":{"type":"string"}}]}
+{"parameters":[{"name":"catalogItemId","in":"path","required":true,"schema":{"type":"string"}},{"name":"If-None-Match","in":"header","required":false,"description":"The ETag of a cached representation; when it still matches, the service answers 304 Not Modified with no body. `*` matches any current representation; a comma-separated list is accepted and a `W/` prefix on a candidate is ignored (weak comparison).","schema":{"type":"string"}}]}

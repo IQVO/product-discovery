@@ -18,7 +18,7 @@ info:
 
     **Consumed.** From offer-availability (`com.retailnetwork.commerce.offer-availability.<entity>.<Event>`): CatalogItemCreated, CatalogItemDiscontinued, ListingCreated, ListingAvailabilityChanged, ListingSuppressed, ListingRestored. From product-content (`com.retailnetwork.storefront.product-content.<entity>.<Event>`): ProductContentPublished, ProductContentRetired, CategoryTreePublished. From pricing (`com.retailnetwork.storefront.pricing.itemprice.<Event>`): ItemPriceChanged, ItemPriceWithdrawn. Three consumer groups, one per topic, each named by a mandatory environment variable.
 
-    **Processing.** CloudEvents 1.0 structured mode. Idempotent on the CloudEvents `id` (inbox table written in the same transaction as the projection), dispatch on the full `type` string, unknown types ignored, undecodable or unfoldable messages dead-lettered. Per-key monotonic guards on top of the inbox: listing `asOf`, content `revision`, price `version`, category tree `version`. A fact for an item the item master has not announced yet creates an invisible stub row that CatalogItemCreated completes (ADR 0002).
+    **Processing.** CloudEvents 1.0 structured mode. Idempotent on the CloudEvents `id` (inbox table written in the same transaction as the projection), dispatch on the full `type` string, unknown types and messages that are not valid CloudEvents are skipped (committed past and counted in `discovery.kafka.poison_messages`), an event of a handled type whose `data` cannot be decoded or folded (`shared.ErrInvalidFact`) is dead-lettered at once without retry, and a transient failure is retried with capped exponential backoff and dead-lettered after 5 handler attempts. The dead-letter topic is `<topic>.dlq` (same key and value, headers `x-dlq-source-topic`, `x-dlq-error`, `x-dlq-failed-at`). Per-key monotonic guards on top of the inbox: listing `asOf`, content `revision`, price `version`, category tree `version`. A fact for an item the item master has not announced yet creates an invisible stub row that CatalogItemCreated completes (ADR 0002).
 servers:
   production:
     host: '{brokers}'
@@ -264,8 +264,6 @@ components:
             dataschema: urn:retailnetwork:offer-availability:events:ListingSuppressed:v1
             data:
               listingId: LST-000184
-              nodeId: NODE-VWS-FC01
-              reason: NODE_NOT_SELLABLE
     ListingRestored:
       name: ListingRestored
       title: ListingRestored
@@ -295,7 +293,6 @@ components:
             dataschema: urn:retailnetwork:offer-availability:events:ListingRestored:v1
             data:
               listingId: LST-000184
-              nodeId: NODE-VWS-FC01
     ProductContentPublished:
       name: ProductContentPublished
       title: ProductContentPublished
@@ -438,7 +435,6 @@ components:
               currency: BRL
               listPriceMinor: 12990
               effectivePriceMinor: 9990
-              saleEndsAt: '2026-10-31T23:59:59Z'
               version: 7
     ItemPriceWithdrawn:
       name: ItemPriceWithdrawn
@@ -510,10 +506,6 @@ components:
       required: [listingId]
       properties:
         listingId:
-          type: string
-        nodeId:
-          type: string
-        reason:
           type: string
     CatalogItemCreatedData:
       type: object
@@ -602,7 +594,7 @@ components:
                 type: string
               role:
                 type: string
-                enum: [PRIMARY, GALLERY]
+                description: Copied as is; PRIMARY marks the media shown as a hit's primaryMedia.
         primaryCategoryId:
           type: string
     CategoryTreePublishedData:
@@ -640,8 +632,6 @@ components:
         effectivePriceMinor:
           type: integer
           format: int64
-        saleEndsAt:
-          $ref: '#/components/schemas/Instant'
         version:
           type: integer
           minimum: 1
