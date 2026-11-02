@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/IQVO/product-discovery/internal/adapters/inbound/http/page"
 	"github.com/IQVO/product-discovery/internal/application/ports"
 	"github.com/IQVO/product-discovery/internal/domain/search"
 )
@@ -25,6 +26,12 @@ type problem struct {
 
 var internalProblem = problem{http.StatusInternalServerError, "internal-error", "Internal server error"}
 
+var (
+	invalidLimit          = problem{http.StatusBadRequest, "invalid-limit", "Invalid limit"}
+	invalidCursor         = problem{http.StatusBadRequest, "invalid-cursor", "Invalid cursor"}
+	unknownQueryParameter = problem{http.StatusBadRequest, "unknown-query-parameter", "Unknown query parameter"}
+)
+
 var validationFailed = problem{http.StatusUnprocessableEntity, "validation-failed", "Validation failed"}
 
 // problemCatalogue maps every typed error to its problem, in match order. This
@@ -34,6 +41,9 @@ var problemCatalogue = []struct {
 	p   problem
 }{
 	{errMalformedRequest, problem{http.StatusBadRequest, "malformed-request", "Malformed request"}},
+	{page.ErrInvalidLimit, invalidLimit},
+	{page.ErrInvalidCursor, invalidCursor},
+	{search.ErrInvalidCursor, invalidCursor},
 	{ports.ErrNotFound, problem{http.StatusNotFound, "not-found", "Not found"}},
 	{search.ErrValidation, validationFailed},
 }

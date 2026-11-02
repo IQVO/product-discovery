@@ -19,7 +19,8 @@ info:
     price band and in-stock; product-type queries also return category
     suggestions. Errors are RFC 9457 problem details
     (application/problem+json); this read-only surface uses not-found (404)
-    and validation-failed (422). No authentication. A catalogue item the item master
+    and validation-failed (422), plus 400 problems for paging (invalid-limit,
+    invalid-cursor, unknown-query-parameter). No authentication. A catalogue item the item master
     has not announced yet (a stub row) is invisible: GET /products/{id} answers
     404 for it and search never lists it. The category path of a product is
     joined from the CategoryView at query time, so a category rename shows at
@@ -42,21 +43,28 @@ paths:
         search (tsvector weights title A, category names A, attributes B,
         description C) with a pg_trgm similarity fallback for typos; filters
         combine with AND. Product-type queries also return category
-        suggestions. Keyset pagination via after.
+        suggestions. Keyset pagination: limit (1-500, default 100) and the opaque cursor
+        taken from the previous page's nextCursor; filters are repeated on every page.
+        A query parameter the operation does not declare (for example the retired after)
+        is a 400 unknown-query-parameter.
       parameters:
         - name: q
           in: query
           required: false
+          description: Free-text query; whitespace is collapsed. More than 200 characters is 422.
           schema:
             type: string
+            maxLength: 200
         - name: categoryId
           in: query
           required: false
+          description: Restrict to one category (surrounding whitespace is trimmed).
           schema:
             type: string
         - name: inStock
           in: query
           required: false
+          description: Only `true` or `false` are accepted; anything else is 422.
           schema:
             type: boolean
         - name: priceMin
@@ -66,7 +74,7 @@ paths:
             type: integer
             format: int64
             minimum: 0
-          description: Effective price lower bound in minor units.
+          description: Effective price lower bound in minor units; negative, non-integer or above priceMax is 422.
         - name: priceMax
           in: query
           required: false
@@ -74,25 +82,16 @@ paths:
             type: integer
             format: int64
             minimum: 0
-          description: Effective price upper bound in minor units.
+          description: Effective price upper bound in minor units; negative or non-integer is 422.
         - name: sort
           in: query
           required: false
+          description: Ordering; absent means relevance. Any other value is 422.
           schema:
             type: string
             enum: [relevance, price-asc, price-desc, title]
-        - name: after
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
           description: The matching products, with facets and category suggestions.
@@ -100,8 +99,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductSearchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /products/{catalogItemId}:
     get:
       tags: [Products]
@@ -113,47 +116,144 @@ paths:
         asynchronously afterwards by the BFF).
       parameters:
         - $ref: '#/components/parameters/CatalogItemId'
+        - $ref: '#/components/parameters/IfNoneMatch'
       responses:
         '200':
           description: The product view.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductView'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /categories:
     get:
       tags: [Categories]
       operationId: listCategories
+      x-pagination-exempt: view
+      x-pagination-exempt-reason: >-
+        One versioned CategoryView tree with purchasable counts rolled up the
+        tree; the tree is a single composite resource and is meaningless in
+        slices.
       summary: Get the category tree with purchasable counts
       description: >-
         ListCategories, the CategoryView: tree plus purchasable counts per
         category.
+      parameters:
+        - $ref: '#/components/parameters/IfNoneMatch'
       responses:
         '200':
           description: The category tree.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CategoryViewList'
+        '304':
+          $ref: '#/components/responses/NotModified'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque keyset cursor; pass the nextCursor of the previous page unchanged, with the same filters and sort.
+      schema:
+        type: string
     CatalogItemId:
       name: catalogItemId
       in: path
       required: true
       schema:
         type: string
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      required: false
+      description: >-
+        The ETag of a cached representation; when it still matches, the
+        service answers 304 Not Modified with no body. `*` matches any current
+        representation; a comma-separated list is accepted and a `W/` prefix on
+        a candidate is ignored (weak comparison).
+      schema:
+        type: string
+  headers:
+    ETag:
+      description: >-
+        Strong validator of this representation (quoted hex of its SHA-256
+        prefix). It changes whenever the served read changes: a new content
+        revision, a price version bump, a listing flip or a category rename.
+      schema:
+        type: string
+    CacheControl:
+      description: Freshness window every read may be cached for (CDN-friendly).
+      schema:
+        type: string
   responses:
+    NotModified:
+      description: The If-None-Match value still matches; no body is sent.
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+    BadRequest:
+      description: >-
+        invalid-limit, invalid-cursor, unknown-query-parameter (search only) or
+        malformed-request (a NUL in the query string of any route).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     NotFound:
-      description: not-found.
+      description: >-
+        not-found (no such product, a stub row, or an id longer than 128
+        characters) or resource-not-found (a NUL in the request path, on any
+        route).
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
     Unprocessable:
-      description: validation-failed (invalid query parameter).
+      description: >-
+        validation-failed (q longer than 200 characters, unknown sort, a
+        non-boolean inStock, a non-integer, negative or inverted price bound).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: internal-error; the detail never carries the internal message.
       content:
         application/problem+json:
           schema:
@@ -162,12 +262,12 @@ components:
     Problem:
       type: object
       description: RFC 9457 problem details.
-      required: [type, title, status]
+      required: [type, title, status, detail, instance]
       properties:
         type:
           type: string
           format: uri-reference
-          description: Problem type slug, for example validation-failed.
+          description: Problem type, `/problems/<slug>`, for example /problems/validation-failed.
         title:
           type: string
         status:
@@ -179,6 +279,7 @@ components:
         instance:
           type: string
           format: uri-reference
+          description: The escaped request path.
     Money:
       type: object
       required: [amountMinor, currency]
@@ -200,7 +301,7 @@ components:
           type: string
         unit:
           type: string
-          nullable: true
+          description: Omitted when the attribute has no unit.
     Media:
       type: object
       required: [mediaId, url, altText, role]
@@ -214,10 +315,10 @@ components:
           type: string
         role:
           type: string
-          enum: [PRIMARY, GALLERY]
+          description: Passed through from the content event; PRIMARY marks the hit's primaryMedia.
     ProductView:
       type: object
-      required: [catalogItemId, title, inStock, purchasable]
+      required: [catalogItemId, title, hazmat, fragile, inStock, purchasable]
       properties:
         catalogItemId:
           type: string
@@ -230,6 +331,7 @@ components:
           type: boolean
         description:
           type: string
+          description: Only present while the content is PUBLISHED (so are bullets, attributes, media, categoryId and categoryPath).
         bullets:
           type: array
           items:
@@ -288,7 +390,8 @@ components:
       properties:
         name:
           type: string
-          description: category, price-band or in-stock.
+          description: category, price-band or in-stock, always in that order.
+          enum: [category, price-band, in-stock]
         values:
           type: array
           items:
@@ -310,9 +413,9 @@ components:
           type: string
     ProductSearchResult:
       type: object
-      required: [hits, facets]
+      required: [items, facets]
       properties:
-        hits:
+        items:
           type: array
           items:
             $ref: '#/components/schemas/ProductHit'
@@ -325,19 +428,19 @@ components:
           description: Suggested categories for product-type queries.
           items:
             $ref: '#/components/schemas/CategorySuggestion'
-        next:
+        nextCursor:
           type: string
-          nullable: true
-          description: Opaque keyset cursor; pass it as `after` for the next page. Null on the last page.
+          description: Opaque keyset cursor; pass it as `cursor` for the next page. Absent on the last page.
     CategoryView:
       type: object
-      required: [categoryId, name, path, purchasableCount]
+      required: [categoryId, parentId, name, path, purchasableCount]
       properties:
         categoryId:
           type: string
         parentId:
           type: string
           nullable: true
+          description: null for a root category.
         name:
           type: string
         path:

@@ -45,6 +45,11 @@ type Consumer struct {
 	// Not-a-CloudEvent and unknown types are still skipped.
 	DeadLetterInvalid bool
 
+	// Poison counts every deterministic poison message this consumer commits
+	// past (skipped) or dead-letters, so neither path is silent. newConsumer
+	// wires the OTel counter; nil (a hand-built Consumer in tests) is a no-op.
+	Poison PoisonCounter
+
 	sleep sleepFunc // test hook; nil => real, ctx-cancellable sleep
 }
 
@@ -55,7 +60,7 @@ func newConsumer(name string, brokers []string, topic, groupID string, handlers 
 	return &Consumer{
 		Name: name, Topic: topic, Reader: kafkago.NewReader(readerConfig(brokers, topic, groupID)),
 		Handlers: handlers, Logger: defaultLogger(logger), DLQ: newDomainDLQWriter(brokers),
-		DeadLetterInvalid: true,
+		DeadLetterInvalid: true, Poison: newPoisonCounter(),
 	}
 }
 
@@ -87,19 +92,30 @@ func (c *Consumer) Close() error {
 	return err
 }
 
+// countPoison counts one deterministic poison message; a nil counter is a
+// no-op (hand-built Consumers in tests).
+func (c *Consumer) countPoison(ctx context.Context, disposition, reason string) {
+	if c.Poison != nil {
+		c.Poison.Add(ctx, c.Name, disposition, reason)
+	}
+}
+
 // HandleMessage decodes one CloudEvents 1.0 message and dispatches it. It
 // returns nil for everything deterministic and skippable (not a CloudEvent,
-// an unknown type) and a non-nil error for a transient failure (after the unit
-// of work rolled back) or a poison message.
+// an unknown type) — both counted in the poison counter, never silent — and
+// a non-nil error for a transient failure (after the unit of work rolled
+// back) or a poison message.
 func (c *Consumer) HandleMessage(ctx context.Context, value []byte) error {
 	logger := defaultLogger(c.Logger)
 	e, err := cloudevents.Decode(value)
 	if err != nil {
 		logger.WarnContext(ctx, "skipping a message that is not a valid CloudEvent", "consumer", c.Name, "topic", c.Topic, "error", err)
+		c.countPoison(ctx, dispositionSkipped, reasonInvalidEnvelope)
 		return nil
 	}
 	handle, ok := c.Handlers[e.Type()]
 	if !ok {
+		c.countPoison(ctx, dispositionSkipped, reasonUnknownType)
 		return nil
 	}
 	err = handle(ctx, e)
@@ -108,9 +124,11 @@ func (c *Consumer) HandleMessage(ctx context.Context, value []byte) error {
 	}
 	if c.DeadLetterInvalid && c.DLQ != nil {
 		logger.WarnContext(ctx, "dead-lettering an event that can never be applied", "consumer", c.Name, "type", e.Type(), "event_id", e.ID(), "error", err)
+		c.countPoison(ctx, dispositionDeadLettered, reasonUnappliablePayload)
 		return fmt.Errorf("%w: %w", errPoison, err)
 	}
 	logger.WarnContext(ctx, "skipping an event that can never be applied", "consumer", c.Name, "type", e.Type(), "event_id", e.ID(), "error", err)
+	c.countPoison(ctx, dispositionSkipped, reasonUnappliablePayload)
 	return nil
 }
 
@@ -118,7 +136,7 @@ func (c *Consumer) HandleMessage(ctx context.Context, value []byte) error {
 func decodeData[T any](e ce.Event) (T, error) {
 	var v T
 	if err := e.DataAs(&v); err != nil {
-		return v, fmt.Errorf("%w: %v", errBadPayload, err)
+		return v, fmt.Errorf("%w: %w", errBadPayload, err)
 	}
 	return v, nil
 }

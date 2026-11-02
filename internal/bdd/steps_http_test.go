@@ -32,7 +32,7 @@ func (w *world) get(path string) error {
 
 func (w *world) hitIDs() []string {
 	var ids []string
-	hits, _ := w.json["hits"].([]any)
+	hits, _ := w.json["items"].([]any)
 	for _, h := range hits {
 		ids = append(ids, h.(map[string]any)["catalogItemId"].(string))
 	}
@@ -63,13 +63,13 @@ func registerSearch(sc *godog.ScenarioContext, w *world) {
 		for i := 0; i < 20; i++ {
 			q := url.Values{"sort": {sortBy}, "limit": {fmt.Sprint(n)}}
 			if after != "" {
-				q.Set("after", after)
+				q.Set("cursor", after)
 			}
 			if err := w.search(q); err != nil {
 				return err
 			}
 			w.pages = append(w.pages, w.hitIDs()...)
-			next, ok := w.json["next"].(string)
+			next, ok := w.json["nextCursor"].(string)
 			if !ok {
 				return nil
 			}

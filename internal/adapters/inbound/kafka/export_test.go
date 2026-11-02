@@ -6,4 +6,5 @@ var (
 	ProductContentHandlers    = productContentHandlers
 	PricingHandlers           = pricingHandlers
 	ErrPoison                 = errPoison
+	NewPoisonCounter          = newPoisonCounter
 )

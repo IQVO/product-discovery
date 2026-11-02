@@ -34,7 +34,7 @@ type pricePage struct {
 		EffectivePrice money  `json:"effectivePrice"`
 		Version        int64  `json:"version"`
 	} `json:"items"`
-	Next string `json:"next"`
+	NextCursor string `json:"nextCursor"`
 }
 
 // ListItemPrices implements ports.PriceSource.
@@ -43,7 +43,7 @@ func (p Pricing) ListItemPrices(ctx context.Context, after string, limit int) (r
 	if err := p.get(ctx, pathItemPrices, pageQuery(after, limit), &page); err != nil {
 		return readmodel.Page[readmodel.PriceRow]{}, err
 	}
-	out := readmodel.Page[readmodel.PriceRow]{Next: page.Next}
+	out := readmodel.Page[readmodel.PriceRow]{Next: page.NextCursor}
 	for _, i := range page.Items {
 		out.Items = append(out.Items, readmodel.PriceRow{
 			CatalogItemID: i.CatalogItemID, Withdrawn: i.State == "WITHDRAWN", Currency: i.EffectivePrice.Currency,
@@ -78,7 +78,7 @@ type contentPage struct {
 		} `json:"media"`
 		PrimaryCategoryID string `json:"primaryCategoryId"`
 	} `json:"items"`
-	Next string `json:"next"`
+	NextCursor string `json:"nextCursor"`
 }
 
 // ListProductContents implements ports.ContentSource.
@@ -87,7 +87,7 @@ func (c ProductContent) ListProductContents(ctx context.Context, after string, l
 	if err := c.get(ctx, pathProductContents, pageQuery(after, limit), &page); err != nil {
 		return readmodel.Page[readmodel.ContentRow]{}, err
 	}
-	out := readmodel.Page[readmodel.ContentRow]{Next: page.Next}
+	out := readmodel.Page[readmodel.ContentRow]{Next: page.NextCursor}
 	for _, i := range page.Items {
 		pub := productview.PublishedContent{Revision: i.Revision, Description: i.Description, Bullets: i.Bullets, CategoryID: i.PrimaryCategoryID}
 		for _, a := range i.Attributes {

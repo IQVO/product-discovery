@@ -11,7 +11,10 @@ Every route -> use case mapping, kept in sync with `apis/openapi.yaml` (routes l
 in `internal/adapters/inbound/http/server.go`). This file is documentation for an
 agent, not generated: keep it manually accurate. The surface is read-only.
 
-- `GET /products?q=&categoryId=&inStock=&priceMin=&priceMax=&sort=&after=&limit=` -> `Queries.SearchProducts`
+- `GET /products?q=&categoryId=&inStock=&priceMin=&priceMax=&sort=&cursor=&limit=` -> `Queries.SearchProducts`
+  (paged, body `{items,nextCursor}`; an invalid limit or cursor is 400
+  `invalid-limit` / `invalid-cursor`; an undeclared query parameter is 400
+  `unknown-query-parameter`)
 - `GET /products/{catalogItemId}` -> `Queries.GetProduct` (a stub row is a 404)
 - `GET /categories` -> `Queries.ListCategories`
 - `GET /healthz` (liveness) and `GET /readyz` (drain gate + Postgres ping + Kafka metadata)

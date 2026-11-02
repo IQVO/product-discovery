@@ -12,8 +12,9 @@
 // failures; the run loop then retries the SAME message with capped exponential
 // backoff, and after a bounded number of attempts dead-letters it to
 // "<topic>.dlq" so a stuck message cannot wedge the partition forever.
-// Deterministic problems (not a CloudEvent, unknown type) are logged at WARN and
-// committed past; a payload that can never be applied is dead-lettered.
+// Deterministic problems (not a CloudEvent, unknown type) are logged at WARN,
+// committed past and counted in discovery.kafka.poison_messages; a payload
+// that can never be applied is dead-lettered and counted there too.
 package kafka
 
 import (

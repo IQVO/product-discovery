@@ -184,7 +184,10 @@ carried in the `traceparent` header of each consumed event.
 
 Contract: [`apis/openapi.yaml`](apis/openapi.yaml). No authentication. Errors
 are RFC 9457 problem details (`application/problem+json`). The surface is
-read-only — there is no `Idempotency-Key` because nothing writes.
+read-only — there is no `Idempotency-Key` because nothing writes (no `POST` or `PATCH`).
+`GET /products` pages with `limit` (1-500, default 100) and the opaque `cursor`, and answers
+`{items, facets, categorySuggestions, nextCursor}`; an undeclared query parameter (the retired `after`) is
+`400 unknown-query-parameter`. `GET /categories` is a single versioned tree (`x-pagination-exempt: view`).
 
 | Method | Path | Purpose |
 |---|---|---|
