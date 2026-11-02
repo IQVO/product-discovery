@@ -19,7 +19,8 @@ info:
     price band and in-stock; product-type queries also return category
     suggestions. Errors are RFC 9457 problem details
     (application/problem+json); this read-only surface uses not-found (404)
-    and validation-failed (422). No authentication. A catalogue item the item master
+    and validation-failed (422), plus 400 problems for paging (invalid-limit,
+    invalid-cursor, unknown-query-parameter). No authentication. A catalogue item the item master
     has not announced yet (a stub row) is invisible: GET /products/{id} answers
     404 for it and search never lists it. The category path of a product is
     joined from the CategoryView at query time, so a category rename shows at
@@ -42,7 +43,10 @@ paths:
         search (tsvector weights title A, category names A, attributes B,
         description C) with a pg_trgm similarity fallback for typos; filters
         combine with AND. Product-type queries also return category
-        suggestions. Keyset pagination via after.
+        suggestions. Keyset pagination: limit (1-500, default 100) and the opaque cursor
+        taken from the previous page's nextCursor; filters are repeated on every page.
+        A query parameter the operation does not declare (for example the retired after)
+        is a 400 unknown-query-parameter.
       parameters:
         - name: q
           in: query
@@ -81,18 +85,8 @@ paths:
           schema:
             type: string
             enum: [relevance, price-asc, price-desc, title]
-        - name: after
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
           description: The matching products, with facets and category suggestions.
@@ -100,6 +94,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductSearchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '422':
           $ref: '#/components/responses/Unprocessable'
   /products/{catalogItemId}:
@@ -126,6 +122,11 @@ paths:
     get:
       tags: [Categories]
       operationId: listCategories
+      x-pagination-exempt: view
+      x-pagination-exempt-reason: >-
+        One versioned CategoryView tree with purchasable counts rolled up the
+        tree; the tree is a single composite resource and is meaningless in
+        slices.
       summary: Get the category tree with purchasable counts
       description: >-
         ListCategories, the CategoryView: tree plus purchasable counts per
@@ -139,6 +140,22 @@ paths:
                 $ref: '#/components/schemas/CategoryViewList'
 components:
   parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque keyset cursor; pass the nextCursor of the previous page unchanged, with the same filters and sort.
+      schema:
+        type: string
     CatalogItemId:
       name: catalogItemId
       in: path
@@ -146,6 +163,14 @@ components:
       schema:
         type: string
   responses:
+    BadRequest:
+      description: >-
+        invalid-limit, invalid-cursor, unknown-query-parameter or
+        malformed-request (a NUL in the query).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     NotFound:
       description: not-found.
       content:
@@ -310,9 +335,9 @@ components:
           type: string
     ProductSearchResult:
       type: object
-      required: [hits, facets]
+      required: [items, facets]
       properties:
-        hits:
+        items:
           type: array
           items:
             $ref: '#/components/schemas/ProductHit'
@@ -325,10 +350,9 @@ components:
           description: Suggested categories for product-type queries.
           items:
             $ref: '#/components/schemas/CategorySuggestion'
-        next:
+        nextCursor:
           type: string
-          nullable: true
-          description: Opaque keyset cursor; pass it as `after` for the next page. Null on the last page.
+          description: Opaque keyset cursor; pass it as `cursor` for the next page. Absent on the last page.
     CategoryView:
       type: object
       required: [categoryId, name, path, purchasableCount]
