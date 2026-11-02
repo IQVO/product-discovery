@@ -30,7 +30,7 @@ func (s *Server) handleGetProduct(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, productDTO(p))
+	writeCacheableJSON(w, r, productDTO(p))
 }
 
 func (s *Server) handleListCategories(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +39,7 @@ func (s *Server) handleListCategories(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, categoriesDTO(l))
+	writeCacheableJSON(w, r, categoriesDTO(l))
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {

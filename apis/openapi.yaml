@@ -109,13 +109,21 @@ paths:
         asynchronously afterwards by the BFF).
       parameters:
         - $ref: '#/components/parameters/CatalogItemId'
+        - $ref: '#/components/parameters/IfNoneMatch'
       responses:
         '200':
           description: The product view.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductView'
+        '304':
+          $ref: '#/components/responses/NotModified'
         '404':
           $ref: '#/components/responses/NotFound'
   /categories:
@@ -131,13 +139,22 @@ paths:
       description: >-
         ListCategories, the CategoryView: tree plus purchasable counts per
         category.
+      parameters:
+        - $ref: '#/components/parameters/IfNoneMatch'
       responses:
         '200':
           description: The category tree.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CategoryViewList'
+        '304':
+          $ref: '#/components/responses/NotModified'
 components:
   parameters:
     Limit:
@@ -162,7 +179,30 @@ components:
       required: true
       schema:
         type: string
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      required: false
+      description: >-
+        The ETag of a cached representation; when it still matches, the
+        service answers 304 Not Modified with no body.
+      schema:
+        type: string
+  headers:
+    ETag:
+      description: >-
+        Strong validator of this representation (quoted hex of its SHA-256
+        prefix). It changes whenever the served read changes: a new content
+        revision, a price version bump, a listing flip or a category rename.
+      schema:
+        type: string
+    CacheControl:
+      description: Freshness window every read may be cached for (CDN-friendly).
+      schema:
+        type: string
   responses:
+    NotModified:
+      description: The If-None-Match value still matches; no body is sent.
     BadRequest:
       description: >-
         invalid-limit, invalid-cursor, unknown-query-parameter or
