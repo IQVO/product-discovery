@@ -147,7 +147,7 @@ kafka:
 # on a user request and is NOT an always-on workload, so the chart renders it as
 # this optional Job, default OFF - enable it for one `helm upgrade`, let it run
 # to completion, then disable it again (or run the binary operator-side with
-# `kubectl exec` / `docker run`; see docs/operations/runbook.md). The Job runs
+# `kubectl exec` / `docker run`; see docs/docs/operations/runbook.md). The Job runs
 # the same image with command: ["/app/rebuild"] and reads DATABASE_URL plus the
 # three producer base URLs below (all REQUIRED when enabled; the chart names the
 # missing one). It needs no Kafka: cmd/api's consumers resume from their

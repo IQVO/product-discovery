@@ -14,18 +14,27 @@ This project is a domain-driven design study. It is not associated with, endorse
 
 ## Documentation
 
-This repo has no docs site of its own. The context's design lives in
-[warehouse-docs](https://iqvo.github.io/warehouse-docs/storefront/) — `storefront/model/model.yaml` there is the single source of truth.
+This repository publishes its own documentation site at
+**[https://iqvo.github.io/product-discovery/](https://iqvo.github.io/product-discovery/)**, built from
+[`docs/`](docs/) with Docusaurus (`.github/workflows/docs.yml` builds it on every pull request and deploys it
+on push to `main`). The context's design also lives on the aggregator site,
+[warehouse-docs](https://iqvo.github.io/warehouse-docs/storefront/contexts/product-discovery), where
+`storefront/model/model.yaml` is the model of record; the pages below are checked against this code.
 
-Page map:
+Page map (paths relative to `https://iqvo.github.io/product-discovery/docs/`; sources under `docs/docs/`):
 
 | Area | Pages |
 |---|---|
-| Context pack | [Product Discovery context page](https://iqvo.github.io/warehouse-docs/storefront/contexts/product-discovery) and its 13-page ddd-crew pack (business context, ubiquitous language, core-domain chart, bounded-context canvas, context map, aggregate canvas, domain events, message flow, eventstorming, use cases, class/sequence/ER diagrams) |
-| Strategic design | [Storefront strategic design](https://iqvo.github.io/warehouse-docs/storefront/strategic-design/) — subdomain classification, context map, CloudEvents event standard, model gap register |
-| API reference | [REST reference generated from `apis/openapi.yaml`](https://iqvo.github.io/warehouse-docs/storefront/api-reference/rest/product-discovery/) |
-| Decisions | [Storefront ADR index](https://iqvo.github.io/warehouse-docs/storefront/adr/), this repo's [ADR index](docs/adr/index.md) |
-| In this repo | [`docs/adr/`](docs/adr/), [`docs/operations/runbook.md`](docs/operations/runbook.md), [`docs/network-ohs-allowlist.yaml`](docs/network-ohs-allowlist.yaml), [`docs/before-first-release.md`](docs/before-first-release.md) |
+| Overview | [introduction](https://iqvo.github.io/product-discovery/docs/overview/introduction) (what the context owns and does not own), [architecture](https://iqvo.github.io/product-discovery/docs/overview/architecture) (layers, the three binaries, data stores), [quickstart](https://iqvo.github.io/product-discovery/docs/overview/quickstart) (prerequisites, `make` targets, local Postgres and Kafka, first calls) |
+| Operations | [configuration](https://iqvo.github.io/product-discovery/docs/operations/configuration) (every variable per binary), [runbook](https://iqvo.github.io/product-discovery/docs/operations/runbook) (deploy, probes, migrations, topics and dead letters, rebuild), [observability](https://iqvo.github.io/product-discovery/docs/operations/observability) (metrics, spans, logs, dashboard and alerts), [troubleshooting](https://iqvo.github.io/product-discovery/docs/operations/troubleshooting) (symptom, cause, check, fix), [before the first release](https://iqvo.github.io/product-discovery/docs/operations/before-first-release) |
+| Development | [testing](https://iqvo.github.io/product-discovery/docs/development/testing) (the pyramid, `make` targets, CI jobs) |
+| Domain-driven design | [use cases](https://iqvo.github.io/product-discovery/docs/ddd/use-cases), [subdomain classification](https://iqvo.github.io/product-discovery/docs/ddd/subdomain-classification), [ubiquitous language](https://iqvo.github.io/product-discovery/docs/ddd/ubiquitous-language), [DDD artifacts](https://iqvo.github.io/product-discovery/docs/ddd/ddd-artifacts) with [core domain chart](https://iqvo.github.io/product-discovery/docs/ddd/core-domain-chart), [bounded context canvas](https://iqvo.github.io/product-discovery/docs/ddd/bounded-context-canvas), [context map](https://iqvo.github.io/product-discovery/docs/ddd/context-map), [aggregate design canvas](https://iqvo.github.io/product-discovery/docs/ddd/aggregate-design-canvas), [domain message flow](https://iqvo.github.io/product-discovery/docs/ddd/domain-message-flow), [EventStorming](https://iqvo.github.io/product-discovery/docs/ddd/eventstorming), [class diagram](https://iqvo.github.io/product-discovery/docs/ddd/class-diagram), [entity relationship](https://iqvo.github.io/product-discovery/docs/ddd/entity-relationship), [sequence diagrams](https://iqvo.github.io/product-discovery/docs/ddd/sequence-diagrams), [domain events](https://iqvo.github.io/product-discovery/docs/ddd/domain-events) |
+| API reference | [API overview](https://iqvo.github.io/product-discovery/docs/api-reference) (REST, events, A2A), the REST reference generated from [`apis/openapi.yaml`](apis/openapi.yaml), [event catalogue](https://iqvo.github.io/product-discovery/docs/api-reference/events) (from [`apis/asyncapi.yaml`](apis/asyncapi.yaml)) |
+| Ecosystem | [integration](https://iqvo.github.io/product-discovery/docs/ecosystem/integration) (every upstream and downstream edge) |
+| Decisions | [ADR index](https://iqvo.github.io/product-discovery/docs/adr) (source: [`docs/adr/`](docs/adr/)); the aggregator's [storefront ADR index](https://iqvo.github.io/warehouse-docs/storefront/adr/) |
+| In this repo | [`docs/network-ohs-allowlist.yaml`](docs/network-ohs-allowlist.yaml), [`docs/docs/operations/runbook.md`](docs/docs/operations/runbook.md), [`docs/docs/operations/before-first-release.md`](docs/docs/operations/before-first-release.md) |
+
+Build the site locally with `cd docs && npm ci && npm run build`.
 
 ## Architecture
 
@@ -205,7 +214,7 @@ helm install product-discovery ./charts/product-discovery \
 `cmd/rebuild` is rendered as a ONE-SHOT ops Job (ADR 0006), **default off**:
 enable `rebuild.enabled=true` for one `helm upgrade`, let it run to
 completion, then disable it again (or run the binary operator-side; see
-[`docs/operations/runbook.md`](docs/operations/runbook.md)). The Job runs the
+[`docs/docs/operations/runbook.md`](docs/docs/operations/runbook.md)). The Job runs the
 same image with `command: ["/app/rebuild"]`, one run with one retry
 (`backoffLimit: 1`), kept for a day for inspection, and reads `DATABASE_URL`
 plus the three `rebuild.sources.*Url` values (all required when enabled).
@@ -269,7 +278,7 @@ lefthook install
 go test ./... -race                        # unit suites
 make coverage                              # domain+application coverage, CI gate >= 90%
 go test -tags=integration ./...            # testcontainers Postgres/Kafka (Docker only)
-go test ./features/ -run TestFeatures -v   # godog/BDD over the real HTTP API
+go test ./internal/bdd/ -run TestFeatures -v   # godog/BDD (features/*.feature) over the real HTTP router
 go test ./internal/architecture/... -v     # architecture fitness tests (arch-go)
 gremlins unleash ./internal/domain         # mutation, thresholds in .gremlins.yaml
 ```

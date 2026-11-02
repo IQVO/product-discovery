@@ -2,7 +2,7 @@
 {{- if .Values.rebuild.enabled }}
 # cmd/rebuild (ADR 0003 S5, ADR 0005): a ONE-SHOT ops job, never an always-on
 # workload. Enable it for one `helm upgrade`, let it run to completion, then
-# disable it again (docs/operations/runbook.md). It reads DATABASE_URL and the
+# disable it again (docs/docs/operations/runbook.md). It reads DATABASE_URL and the
 # three producer base URLs (all mandatory; requireRebuild names the missing
 # one) and needs no Kafka: cmd/api's consumers resume from their committed
 # offsets afterwards and drop every replayed event that is not newer.
