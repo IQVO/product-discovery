@@ -67,13 +67,17 @@ Errors are `application/problem+json` with `type` `/problems/<slug>` (`internal/
 | 400 | `/problems/malformed-request` | A NUL character (U+0000, raw or `%00`) in the query string |
 | 404 | `/problems/not-found` | Unknown or stub `catalogItemId`; an id longer than 128 characters |
 | 404 | `/problems/resource-not-found` | A NUL character in the URL path (`rejectNUL`); not listed in `apis/openapi.yaml` |
-| 422 | `/problems/validation-failed` | A query parameter out of range or of the wrong type; `detail` is `<field>: <reason>` |
+| 400 | `/problems/invalid-limit` | `limit` empty, repeated, not an integer or outside 1..500 (`GET /products`) |
+| 400 | `/problems/invalid-cursor` | `cursor` repeated or not a cursor of this search (other sort or matching mode) |
+| 400 | `/problems/unknown-query-parameter` | A query parameter the operation does not declare, for example the retired `after` |
+| 422 | `/problems/validation-failed` | A filter out of range or of the wrong type; `detail` is `<field>: <reason>` |
 | 500 | `/problems/internal-error` | An unmapped error; `detail` is always `an unexpected error occurred` |
 | 503 | `/problems/dependency-unavailable` | `GET /readyz` only |
 
 | Symptom | Cause | Check | Fix |
 | --- | --- | --- | --- |
-| 422 on `GET /products` | Validation: `q` over 200 characters; `sort` not one of `relevance`, `price-asc`, `price-desc`, `title`; `limit` outside 1..100 (and `limit=0` is refused, not defaulted); `priceMin` or `priceMax` negative; `priceMin` above `priceMax`; `inStock` not exactly `true` or `false`; a non-integer price; an `after` cursor that is not of this search | `detail` names the field, for example `limit: between 1 and 100` | Correct the parameter. A cursor is bound to the sort and the matching mode: reuse `next` only with the same `sort` and the same kind of query (text or browse) |
+| 422 on `GET /products` | Validation: `q` over 200 characters; `sort` not one of `relevance`, `price-asc`, `price-desc`, `title`; `priceMin` or `priceMax` negative; `priceMin` above `priceMax`; `inStock` not exactly `true` or `false`; a non-integer price | `detail` names the field, for example `priceMin: must not exceed priceMax` | Correct the parameter |
+| 400 `invalid-limit`, `invalid-cursor` or `unknown-query-parameter` on `GET /products` | `limit` outside 1..500, empty or repeated; a `cursor` that is repeated or not of this search; a parameter the operation does not declare (`after`, `offset`, `nextToken`) | `detail` names the parameter | A cursor is bound to the sort and the matching mode: reuse `nextCursor` as `cursor` only with the same `sort`, filters and kind of query (text or browse) |
 | 500 `internal-error` on search | A database error. Every Postgres statement has a 5 s `statement_timeout`; a slow query is cancelled and answers 500 | ERROR `request failed` with `error` and `path`; the `discovery.searches.served` counter with `outcome=failed,reason=internal-error` | Check Postgres load and the indexes of migration `0001` (GIN on `doc` and on `title` trigram); the pool is capped at 10 connections per process |
 | A typo query (`ketle`) finds nothing | The trigram fallback runs only on the **first page** of a text search whose full-text query matched zero rows, and only for titles whose trigram similarity (whole title or any single word) reaches 0.3 (`search.SimilarityThreshold`) | Try the exact word; `pg_trgm` is installed (`\dx`) | Expected for words far from any title; the fallback cannot cross a cursor (later pages stay in the mode of the first) |
 | Search for a product type returns hits but odd ranking | Category names rank at weight A through a query-time boost (ADR 0002 A4); a product-type query also returns up to 5 `categorySuggestions`, shallowest first | The `categorySuggestions` array | Expected |

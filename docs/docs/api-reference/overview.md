@@ -31,7 +31,7 @@ Source: `internal/adapters/inbound/http/server.go`, `internal/adapters/inbound/h
 
 | Tag | Endpoint | Operation id | Success | Errors |
 | --- | --- | --- | --- | --- |
-| Products | `GET /products` | `searchProducts` | `200` `{hits, facets, categorySuggestions, next}` | `422 validation-failed`; `400 malformed-request` (NUL in the query) |
+| Products | `GET /products` | `searchProducts` | `200` `{items, facets, categorySuggestions, nextCursor}` | `422 validation-failed`; `400 invalid-limit`, `invalid-cursor`, `unknown-query-parameter`, `malformed-request` (NUL in the query) |
 | Products | `GET /products/{catalogItemId}` | `getProduct` | `200` the product view | `404 not-found` (unknown, stub or over-long id) |
 | Categories | `GET /categories` | `listCategories` | `200` `{version, categories[]}`, empty at version 0 | none |
 | Health | `GET /healthz` | not in the spec | `200` `{"status":"ok"}` always while the process runs | none |
@@ -48,14 +48,16 @@ Source: `internal/adapters/inbound/http/server.go`, `internal/adapters/inbound/h
 | `inStock` | boolean | Exactly `true` or `false` |
 | `priceMin`, `priceMax` | integer | Effective price in minor units, not negative, `priceMin` at most `priceMax`. Only priced rows match |
 | `sort` | string | `relevance` (default), `price-asc`, `price-desc`, `title` |
-| `after` | string | The opaque `next` of the previous page; bound to the same `sort` and the same kind of query |
-| `limit` | integer | 1 to 100, default 20; `0` is refused |
+| `cursor` | string | The opaque `nextCursor` of the previous page; bound to the same `sort` and the same kind of query. Invalid or repeated: `400 invalid-cursor` |
+| `limit` | integer | 1 to 500, default 100. Out of range, empty, or repeated: `400 invalid-limit` |
 
-Response shape: each hit has `catalogItemId`, `title`, `effectivePrice` (`amountMinor`, `currency`),
+Any other query parameter, including the retired `after`, `offset` and `nextToken`, is `400 unknown-query-parameter`.
+
+Response shape: `items` holds the hits (`nextCursor` is absent on the last page); each hit has `catalogItemId`, `title`, `effectivePrice` (`amountMinor`, `currency`),
 `primaryMedia`, `categoryId`, `categoryPath`, `inStock`, `purchasable`. `facets` always holds three entries in
 the order `category`, `price-band` and `in-stock`; empty buckets are dropped; price-band values are labels such
 as `<2500`, `2500-4999`, `25000+` (edges from `PRICE_BAND_EDGES`). `categorySuggestions` (up to 5) appears for
-text queries. `next` is `null` on the last page.
+text queries. `nextCursor` is absent on the last page.
 
 ## A2A agent
 
@@ -90,13 +92,14 @@ and `internal-error` (500). The Agent Card carries the version (`SERVICE_VERSION
   `resource-not-found` (404). The slugs and their causes are on
   [Troubleshooting](/docs/operations/troubleshooting#rest-problem-types).
 - **Money** is `{amountMinor, currency}`: minor units of an ISO-style three-letter currency.
-- **Paging** is keyset-based: `limit` and the opaque `after`/`next` cursor. A cursor is bound to a sort and to
-  a matching mode (browse, full-text or trigram) and is refused with `422` otherwise.
+- **Paging** is keyset-based: `limit` and the opaque `cursor`/`nextCursor` pair. A cursor is bound to a sort and to
+  a matching mode (browse, full-text or trigram) and is refused with `400 invalid-cursor` otherwise. The A2A
+  `search_products` tool keeps its own schema (`after`, `hits`, `next`, in-band 422).
 - **Visibility.** A stub row (the item master has not announced the item) is invisible. `GET /products/{id}`
   returns every other row, even a discontinued or unpurchasable one; search lists only active items with
   published content, flagged with `purchasable` and `inStock`.
 - **Auth:** none.
-- **Idempotency:** nothing to retry unsafely; every route is a `GET`.
+- **Idempotency:** the service has no `POST` or `PATCH`, so no `Idempotency-Key` is read; every route is a `GET`. `GET /categories` is exempt from paging (`x-pagination-exempt: view`).
 
 ## Spec versus code
 

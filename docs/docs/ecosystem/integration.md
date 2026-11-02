@@ -80,7 +80,7 @@ Open Host Service routes only and never a restricted route; the allowlist
 | `product-content` | `GET /product-contents` (paged) | storefront route | published and retired content, `revision` |
 | `product-content` | `GET /categories` | storefront route | the tree and its `version` |
 
-Pages hold 500 rows (`after` cursor, `limit`). Each call is tried 4 times on transport errors and 5xx answers
+Pages hold 500 rows (`cursor` query parameter, `limit`; each answer is `{items, nextCursor}` and the loop ends when `nextCursor` is absent). Each call is tried 4 times on transport errors and 5xx answers
 with a growing pause (200 ms times the attempt) and has a 30 s timeout; any other non-200 answer fails the
 run at once. The base URLs are `OFFER_AVAILABILITY_URL`, `PRICING_URL` and `PRODUCT_CONTENT_URL`. A failing
 page aborts the run; re-running is safe. The routes are called with no credentials.
