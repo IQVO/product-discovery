@@ -15,19 +15,19 @@ func sorted(in []string) []string {
 }
 
 func searchBrowse(t *testing.T, e Env) {
-	res := run(t, e, request(query(t, search.Input{Sort: "title"})))
+	res := run(t, e, request(query(t, search.Input{Sort: sortTitle})))
 	equalIDs(t, "browse by title", ids(res), []string{"k3", "g1", "g2", "k2", "n1", "k1"})
 	if res.Next != nil {
 		t.Errorf("one page holds everything, Next = %+v", res.Next)
 	}
-	res = run(t, e, request(query(t, search.Input{Sort: "price-asc"})))
+	res = run(t, e, request(query(t, search.Input{Sort: sortPriceAsc})))
 	equalIDs(t, "price-asc skips unpriced rows", ids(res), []string{"k3", "k1", "k2", "g1", "g2"})
 	res = run(t, e, request(query(t, search.Input{Sort: "price-desc"})))
 	equalIDs(t, "price-desc", ids(res), []string{"g2", "g1", "k2", "k1", "k3"})
 }
 
 func searchPaging(t *testing.T, e Env) {
-	for _, sortBy := range []string{"title", "price-asc", "price-desc", "relevance"} {
+	for _, sortBy := range []string{sortTitle, sortPriceAsc, "price-desc", "relevance"} {
 		full := ids(run(t, e, request(query(t, search.Input{Sort: sortBy}))))
 		var got []string
 		after := ""
@@ -57,13 +57,13 @@ func searchFilters(t *testing.T, e Env) {
 		req  readmodel.SearchRequest
 		want []string
 	}{
-		{"in stock", request(query(t, search.Input{InStock: &yes, Sort: "title"})), []string{"k3", "g1", "g2", "n1", "k1"}},
+		{"in stock", request(query(t, search.Input{InStock: &yes, Sort: sortTitle})), []string{"k3", "g1", "g2", "n1", "k1"}},
 		{"out of stock", request(query(t, search.Input{InStock: &no})), []string{"k2"}},
-		{"price range", request(query(t, search.Input{PriceMin: &lo, PriceMax: &hi, Sort: "price-asc"})), []string{"k1", "k2"}},
-		{"price floor only", request(query(t, search.Input{PriceMin: &hi, Sort: "price-asc"})), []string{"g1", "g2"}},
+		{"price range", request(query(t, search.Input{PriceMin: &lo, PriceMax: &hi, Sort: sortPriceAsc})), []string{"k1", "k2"}},
+		{"price floor only", request(query(t, search.Input{PriceMin: &hi, Sort: sortPriceAsc})), []string{"g1", "g2"}},
 	}
-	sub := request(query(t, search.Input{Sort: "title"}))
-	sub.CategoryIDs = []string{"kitchen", "kettles"}
+	sub := request(query(t, search.Input{Sort: sortTitle}))
+	sub.CategoryIDs = []string{catKitchen, catKettles}
 	cases = append(cases, struct {
 		name string
 		req  readmodel.SearchRequest
@@ -87,11 +87,11 @@ func searchText(t *testing.T, e Env) {
 	if len(got) != 3 || got[2] != "k3" || (got[0] != "k1" && got[0] != "k2") {
 		t.Errorf("kettle: title matches rank above the description match, got %v", got)
 	}
-	equalIDs(t, "attribute match", ids(run(t, e, request(query(t, search.Input{Text: "silver"})))), []string{"k1"})
+	equalIDs(t, "attribute match", ids(run(t, e, request(query(t, search.Input{Text: attrSilver})))), []string{"k1"})
 	equalIDs(t, "no match", ids(run(t, e, request(query(t, search.Input{Text: "zeppelin"})))), []string{})
 	equalIDs(t, "all words must match", ids(run(t, e, request(query(t, search.Input{Text: "kettle garden"})))), []string{})
-	boost := request(query(t, search.Input{Text: "cookware", Sort: "title"}))
-	boost.BoostCategoryIDs = []string{"garden"}
+	boost := request(query(t, search.Input{Text: "cookware", Sort: sortTitle}))
+	boost.BoostCategoryIDs = []string{catGarden}
 	equalIDs(t, "category-name match", ids(run(t, e, boost)), []string{"g1", "g2"})
 	typo := request(query(t, search.Input{Text: "ketle"}))
 	equalIDs(t, "full-text finds no typo", ids(run(t, e, typo)), []string{})
@@ -109,7 +109,7 @@ func searchFacets(t *testing.T, e Env) {
 		t.Fatalf("limit 2 must page: %d hits", len(res.Hits))
 	}
 	want := search.NewFacets(search.Counts{
-		Category: map[string]int{"kettles": 2, "kitchen": 1, "garden": 2},
+		Category: map[string]int{catKettles: 2, catKitchen: 1, catGarden: 2},
 		Band:     map[string]int{"<2500": 1, "2500-4999": 1, "5000-9999": 1, "10000-24999": 1, "25000+": 1},
 		InStock:  5, OutStock: 1,
 	}, search.Bands(search.DefaultBandEdges))
@@ -136,12 +136,12 @@ func sameValues(a, b []search.FacetValue) bool {
 }
 
 func searchHitData(t *testing.T, e Env) {
-	res := run(t, e, request(query(t, search.Input{Text: "silver"})))
+	res := run(t, e, request(query(t, search.Input{Text: attrSilver})))
 	if len(res.Hits) != 1 {
 		t.Fatalf("hits = %+v", res.Hits)
 	}
 	h := res.Hits[0]
-	if h.Title != "Steel Kettle 1.7L" || h.CategoryID != "kettles" || !h.HasPrice || h.Currency != "USD" || h.PriceMinor != 3000 ||
+	if h.Title != "Steel Kettle 1.7L" || h.CategoryID != catKettles || !h.HasPrice || h.Currency != "USD" || h.PriceMinor != 3000 ||
 		!h.InStock || !h.Purchasable || h.PrimaryMedia == nil || h.PrimaryMedia.MediaID != "m-k1" {
 		t.Errorf("hit = %+v", h)
 	}
