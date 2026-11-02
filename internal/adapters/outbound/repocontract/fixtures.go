@@ -7,6 +7,19 @@ import (
 	"github.com/IQVO/product-discovery/internal/domain/productview"
 )
 
+// Fixed fixture vocabulary shared by every repo contract case file: the
+// category tree IDs, the one attribute value the catalogue uses and the
+// search sort keys the cases assert against.
+const (
+	catHome      = "home"
+	catKitchen   = "kitchen"
+	catKettles   = "kettles"
+	catGarden    = "garden"
+	attrSilver   = "silver"
+	sortTitle    = "title"
+	sortPriceAsc = "price-asc"
+)
+
 // spec describes one product fixture.
 type spec struct {
 	id, title, desc, category string
@@ -60,10 +73,10 @@ func saveAll(t *testing.T, e Env, specs ...spec) {
 func tree(t *testing.T) categoryview.View {
 	t.Helper()
 	v, err := categoryview.New(4, []categoryview.Category{
-		{ID: "home", Name: "Home", Path: "Home"},
-		{ID: "kitchen", ParentID: "home", Name: "Kitchen", Path: "Home/Kitchen"},
-		{ID: "kettles", ParentID: "kitchen", Name: "Kettles", Path: "Home/Kitchen/Kettles"},
-		{ID: "garden", ParentID: "home", Name: "Garden", Path: "Home/Garden"},
+		{ID: catHome, Name: "Home", Path: "Home"},
+		{ID: catKitchen, ParentID: catHome, Name: "Kitchen", Path: "Home/Kitchen"},
+		{ID: catKettles, ParentID: catKitchen, Name: "Kettles", Path: "Home/Kitchen/Kettles"},
+		{ID: catGarden, ParentID: catHome, Name: "Garden", Path: "Home/Garden"},
 	})
 	must(t, err)
 	return v

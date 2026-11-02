@@ -13,15 +13,15 @@ import (
 func seedCatalogue(t *testing.T, e Env) {
 	t.Helper()
 	saveAll(t, e,
-		spec{id: "k1", title: "Steel Kettle 1.7L", desc: "Boils water quickly", category: "kettles", price: 3000, qty: 5,
-			attrs: []productview.Attribute{{Name: "colour", Value: "silver"}}},
-		spec{id: "k2", title: "Glass Kettle", desc: "See through body", category: "kettles", price: 8000},
-		spec{id: "k3", title: "Electric Teapot", desc: "A kettle alternative for tea", category: "kitchen", price: 1500, qty: 2},
-		spec{id: "g1", title: "Garden Hose", desc: "Twenty metres", category: "garden", price: 12000, qty: 3},
-		spec{id: "g2", title: "Garden Rake", desc: "Steel tines", category: "garden", price: 30000, qty: 1},
+		spec{id: "k1", title: "Steel Kettle 1.7L", desc: "Boils water quickly", category: catKettles, price: 3000, qty: 5,
+			attrs: []productview.Attribute{{Name: "colour", Value: attrSilver}}},
+		spec{id: "k2", title: "Glass Kettle", desc: "See through body", category: catKettles, price: 8000},
+		spec{id: "k3", title: "Electric Teapot", desc: "A kettle alternative for tea", category: catKitchen, price: 1500, qty: 2},
+		spec{id: "g1", title: "Garden Hose", desc: "Twenty metres", category: catGarden, price: 12000, qty: 3},
+		spec{id: "g2", title: "Garden Rake", desc: "Steel tines", category: catGarden, price: 30000, qty: 1},
 		spec{id: "n1", title: "Mystery Box", desc: "Surprise", qty: 1},
-		spec{id: "x1", title: "Old Kettle", desc: "Gone", category: "kettles", price: 100, qty: 1, discontinued: true},
-		spec{id: "x2", title: "Hidden Kettle", category: "kettles", price: 100, qty: 1, noContent: true},
+		spec{id: "x1", title: "Old Kettle", desc: "Gone", category: catKettles, price: 100, qty: 1, discontinued: true},
+		spec{id: "x2", title: "Hidden Kettle", category: catKettles, price: 100, qty: 1, noContent: true},
 	)
 	stub, _ := productview.Stub("x3")
 	must(t, e.Products.Save(bg(), stub))
