@@ -53,6 +53,9 @@ type Deps struct {
 	Queries usecases.Queries
 }
 
+// modeJSON is the one content type every skill of this agent speaks.
+const modeJSON = "application/json"
+
 // Card builds this agent's Agent Card (ADR 0007). The surface is two curated,
 // goal-shaped READ skills, each backed by a read use case a REST GET already
 // exposes. The card declares no security schemes on purpose: this surface is
@@ -71,8 +74,8 @@ func Card(cfg Config) *a2a.AgentCard {
 		SupportedInterfaces: []*a2a.AgentInterface{
 			a2a.NewAgentInterface(cfg.AgentURL, a2a.TransportProtocolJSONRPC),
 		},
-		DefaultInputModes:  []string{"application/json", "text/plain"},
-		DefaultOutputModes: []string{"application/json", "text/plain"},
+		DefaultInputModes:  []string{modeJSON, "text/plain"},
+		DefaultOutputModes: []string{modeJSON, "text/plain"},
 		Capabilities:       a2a.AgentCapabilities{Streaming: false},
 		Skills: []a2a.AgentSkill{
 			{
@@ -80,7 +83,7 @@ func Card(cfg Config) *a2a.AgentCard {
 				Name:        "Search the product catalogue",
 				Description: "Find purchasable products. Arguments (all optional): q (free text, at most 200 characters; a product-type query also returns categorySuggestions), categoryId (restrict to that category subtree), inStock (true / false), priceMin and priceMax (effective price in minor units, not negative), sort (relevance | price-asc | price-desc | title), limit (1 to 500, default 100) and after (the next cursor of a previous answer). Each hit carries catalogItemId, title, effectivePrice, primaryMedia, categoryPath, inStock and purchasable; the answer also carries the facets and a next cursor (null on the last page). A bad value is answered as a 422 validation-failed problem. Persists nothing.",
 				Tags:        []string{"product", "search", "catalogue", "read"},
-				InputModes:  []string{"application/json"},
+				InputModes:  []string{modeJSON},
 				Examples: []string{
 					`{"skill":"search_products","arguments":{"q":"kettle","inStock":true,"sort":"price-asc","limit":5}}`,
 					`{"skill":"search_products","arguments":{"categoryId":"kettles","priceMax":10000}}`,
@@ -91,7 +94,7 @@ func Card(cfg Config) *a2a.AgentCard {
 				Name:        "Read one product page view",
 				Description: "Read the full view of one catalogue item by catalogItemId: title, hazmat and fragile flags, description, bullets, attributes, media, categoryId and categoryPath (once content is published), list and effective price (once priced), inStock and purchasable. An item the item master has not announced yet is invisible: it answers a 404 problem, like an unknown id. Persists nothing.",
 				Tags:        []string{"product", "catalogue", "read"},
-				InputModes:  []string{"application/json"},
+				InputModes:  []string{modeJSON},
 				Examples: []string{
 					`{"skill":"get_product","arguments":{"catalogItemId":"I-1"}}`,
 				},

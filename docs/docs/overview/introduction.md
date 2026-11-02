@@ -98,3 +98,7 @@ mandatory. There is no MCP server. REST and A2A are unauthenticated fleet-wide. 
 | Read the decisions | [ADR index](/docs/adr) |
 
 Published at [https://iqvo.github.io/product-discovery/](https://iqvo.github.io/product-discovery/).
+
+:::note[Disclaimer]
+This project is a domain-driven design study. It is not associated with, endorsed by or affiliated with any company, and it uses no company's code, data, logos or trademarks. All names, figures and examples are illustrative or synthetic.
+:::
