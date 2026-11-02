@@ -170,20 +170,20 @@ sequenceDiagram
   Op->>R: run the Job
   R->>PG: run migrations (bounded retry)
   loop catalogue pages of 500
-    R->>OA: GET /catalog?after=
+    R->>OA: GET /catalog?cursor=
     OA-->>R: page
     R->>PG: fold each row in its own unit of work
   end
   loop listing pages
-    R->>OA: GET /listings?after=
+    R->>OA: GET /listings?cursor=
     R->>PG: learn mapping and fold snapshot rows
   end
   loop price pages
-    R->>PR: GET /item-prices?after=
+    R->>PR: GET /item-prices?cursor=
     R->>PG: fold each row
   end
   loop content pages
-    R->>PC: GET /product-contents?after=
+    R->>PC: GET /product-contents?cursor=
     R->>PG: fold each row, skipping DRAFT
   end
   R->>PC: GET /categories

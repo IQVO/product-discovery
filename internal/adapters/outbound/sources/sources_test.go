@@ -42,7 +42,7 @@ func same(t *testing.T, what string, got, want any) {
 
 func TestCatalogMapsTheNetworkContract(t *testing.T) {
 	c, _ := serve(t, map[string]string{
-		"/catalog?after=c1&limit=2": `{"items":[{"catalogItemId":"I1","title":"Kettle","hazmat":true,"fragile":false,"state":"ACTIVE","lengthMm":5},
+		"/catalog?cursor=c1&limit=2": `{"items":[{"catalogItemId":"I1","title":"Kettle","hazmat":true,"fragile":false,"state":"ACTIVE","lengthMm":5},
 			{"catalogItemId":"I2","title":"Old","state":"DISCONTINUED"}],"nextCursor":"I2"}`,
 	})
 	got, err := sources.OfferAvailability{Client: c}.ListCatalog(context.Background(), "c1", 2)
@@ -75,7 +75,7 @@ func TestPricingMapsTheStorefrontContract(t *testing.T) {
 	c, _ := serve(t, map[string]string{
 		"/item-prices": `{"items":[{"catalogItemId":"I1","state":"ACTIVE","listPrice":{"amountMinor":900,"currency":"BRL"},
 			"effectivePrice":{"amountMinor":800,"currency":"BRL"},"version":3,"sales":[]},
-			{"catalogItemId":"I2","state":"WITHDRAWN","listPrice":{"amountMinor":1,"currency":"BRL"},"effectivePrice":{"amountMinor":1,"currency":"BRL"},"version":5}],"next":"I2"}`,
+			{"catalogItemId":"I2","state":"WITHDRAWN","listPrice":{"amountMinor":1,"currency":"BRL"},"effectivePrice":{"amountMinor":1,"currency":"BRL"},"version":5}],"nextCursor":"I2"}`,
 	})
 	got, err := sources.Pricing{Client: c}.ListItemPrices(context.Background(), "", 0)
 	if err != nil {
@@ -90,7 +90,7 @@ func TestPricingMapsTheStorefrontContract(t *testing.T) {
 func TestContentAndCategoriesMapTheStorefrontContract(t *testing.T) {
 	c, _ := serve(t, map[string]string{
 		"/product-contents": `{"items":[{"catalogItemId":"I1","state":"PUBLISHED","revision":2,"description":"d","bullets":["b"],
-			"attributes":[{"name":"n","value":"v","unit":"u"}],"media":[{"mediaId":"m","url":"https://x.test/m","altText":"a","role":"PRIMARY"}],"primaryCategoryId":"c1"}],"next":null}`,
+			"attributes":[{"name":"n","value":"v","unit":"u"}],"media":[{"mediaId":"m","url":"https://x.test/m","altText":"a","role":"PRIMARY"}],"primaryCategoryId":"c1"}],"nextCursor":null}`,
 		"/categories": `{"version":4,"categories":[{"categoryId":"c1","name":"One","path":"One"},{"categoryId":"c2","parentId":"c1","name":"Two","path":"One/Two"}]}`,
 	})
 	pc := sources.ProductContent{Client: c}

@@ -45,7 +45,7 @@ Source: `internal/application/usecases/{queries,consume,consume_offer,consume_ca
 
 - **Inputs:** `q` (free text, at most 200 characters after whitespace is collapsed), `categoryId`, `inStock`,
   `priceMin`, `priceMax` (minor units, not negative), `sort` (`relevance` default, `price-asc`,
-  `price-desc`, `title`), `after` (opaque cursor), `limit` (1 to 100, default 20; 0 is refused).
+  `price-desc`, `title`), `after` (opaque cursor), `limit` (1 to 500, default 100; 0 is refused). REST names the same cursor `cursor` and answers `{items, nextCursor}`; this tool keeps `after` and `{hits, next}`.
 - **Invariants:**
   - `priceMin` must not exceed `priceMax`; a cursor must belong to the same sort and the same kind of query
     (text or browse), otherwise `validation-failed` with field `after`.
@@ -59,7 +59,7 @@ Source: `internal/application/usecases/{queries,consume,consume_offer,consume_ca
   - Facets (`category`, `price-band`, `in-stock`) are tallied over the whole filtered set, not the page; empty
     buckets are dropped. Band edges come from `PRICE_BAND_EDGES` (default `2500,5000,10000,25000`).
   - A product-type query also returns up to 5 `categorySuggestions`, shallowest first.
-- **Output:** `hits`, `facets`, `categorySuggestions`, `next` (null on the last page).
+- **Output:** `hits`, `facets`, `categorySuggestions`, `next` (null on the last page); REST answers `items`, `facets`, `categorySuggestions`, `nextCursor` (absent on the last page).
 - **Metric:** exactly one increment of `discovery.searches.served`: `failed` (with `reason`), `empty` (a first
   page without hits) or `served`.
 - **Events raised:** none.

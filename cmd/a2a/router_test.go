@@ -233,6 +233,7 @@ func TestParity_TheAgentExposesExactlyWhatRESTExposes(t *testing.T) {
 		}
 		for _, args := range cases {
 			status, want := restGet(t, rest, "/products?"+query(args))
+			want = skillEnvelope(want)
 			data, problem := skillData(t, agent, "search_products", args)
 			if status != 200 || problem != nil || !reflect.DeepEqual(data["search"], any(want)) {
 				t.Fatalf("%v: REST %d %v\nA2A  %v (problem %v)", args, status, want, data["search"], problem)
@@ -249,10 +250,29 @@ func TestParity_TheAgentExposesExactlyWhatRESTExposes(t *testing.T) {
 		_, problem = skillData(t, agent, "search_products", map[string]any{"sort": "cheapest"})
 		assertSameClass(t, restStatus, restBody, problem)
 
+		// Paging problems are the one deliberate difference: REST answers them 400
+		// (fleet guideline), the agent keeps its tool contract (in-band 422).
 		restStatus, restBody = restGet(t, rest, "/products?limit=0")
 		_, problem = skillData(t, agent, "search_products", map[string]any{"limit": 0})
-		assertSameClass(t, restStatus, restBody, problem)
+		if restStatus != 400 || restBody["type"] != "/problems/invalid-limit" || problem == nil || problem["status"] != float64(422) {
+			t.Fatalf("REST %d %v, A2A %v", restStatus, restBody, problem)
+		}
 	})
+}
+
+// skillEnvelope maps the REST search body ({items,nextCursor}) to the shape of the
+// search_products tool ({hits,next}); the tool schema is not part of the REST cutover.
+func skillEnvelope(rest map[string]any) map[string]any {
+	out := map[string]any{"hits": rest["items"], "next": nil}
+	if c, ok := rest["nextCursor"]; ok {
+		out["next"] = c
+	}
+	for k, v := range rest {
+		if k != "items" && k != "nextCursor" {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 func assertSameClass(t *testing.T, restStatus int, restBody, problem map[string]any) {

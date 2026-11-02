@@ -131,16 +131,18 @@ curl -s localhost:8080/categories | jq .
 
 What to expect, from `apis/openapi.yaml` and the code:
 
-- `GET /products` answers `200` with `{"hits":[...],"facets":[...],"categorySuggestions":[...],"next":null}`.
+- `GET /products` answers `200` with `{"items":[...],"facets":[...],"categorySuggestions":[...]}` plus `nextCursor` when more pages exist.
   Each hit has `catalogItemId`, `title`, `effectivePrice`, `primaryMedia`, `categoryId`, `categoryPath`,
   `inStock`, `purchasable`. The three facets are `category`, `price-band` (values such as `<2500`,
-  `2500-4999`, `25000+`; edges from `PRICE_BAND_EDGES`) and `in-stock`. `next` is an opaque cursor
-  for `?after=`.
+  `2500-4999`, `25000+`; edges from `PRICE_BAND_EDGES`) and `in-stock`. `nextCursor` is an opaque cursor
+  for `?cursor=`; a retired `?after=` is a `400`.
 - A typo (`?q=ketle`) falls back to `pg_trgm` similarity.
 - `GET /products/CI-004512` answers `200` with the full ProductView; an unknown id, or an item that is
   still a stub, answers `404` `application/problem+json` (`type` `/problems/not-found`).
-- A bad parameter (`?limit=500`, `?sort=cheap`, `?priceMin=9&priceMax=1`) answers `422`
-  `application/problem+json` (`/problems/validation-failed`, `detail` names the field).
+- A bad filter (`?sort=cheap`, `?priceMin=9&priceMax=1`) answers `422`
+  `application/problem+json` (`/problems/validation-failed`, `detail` names the field); a bad `limit`
+  (`?limit=501`), a bad `cursor` or an undeclared parameter answers `400` (`invalid-limit`, `invalid-cursor`,
+  `unknown-query-parameter`).
 
 ## 5. Optional: the A2A agent
 

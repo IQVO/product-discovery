@@ -78,7 +78,7 @@ func Card(cfg Config) *a2a.AgentCard {
 			{
 				ID:          skillSearchProducts,
 				Name:        "Search the product catalogue",
-				Description: "Find purchasable products. Arguments (all optional): q (free text, at most 200 characters; a product-type query also returns categorySuggestions), categoryId (restrict to that category subtree), inStock (true / false), priceMin and priceMax (effective price in minor units, not negative), sort (relevance | price-asc | price-desc | title), limit (1 to 100, default 20) and after (the next cursor of a previous answer). Each hit carries catalogItemId, title, effectivePrice, primaryMedia, categoryPath, inStock and purchasable; the answer also carries the facets and a next cursor (null on the last page). A bad value is answered as a 422 validation-failed problem. Persists nothing.",
+				Description: "Find purchasable products. Arguments (all optional): q (free text, at most 200 characters; a product-type query also returns categorySuggestions), categoryId (restrict to that category subtree), inStock (true / false), priceMin and priceMax (effective price in minor units, not negative), sort (relevance | price-asc | price-desc | title), limit (1 to 500, default 100) and after (the next cursor of a previous answer). Each hit carries catalogItemId, title, effectivePrice, primaryMedia, categoryPath, inStock and purchasable; the answer also carries the facets and a next cursor (null on the last page). A bad value is answered as a 422 validation-failed problem. Persists nothing.",
 				Tags:        []string{"product", "search", "catalogue", "read"},
 				InputModes:  []string{"application/json"},
 				Examples: []string{

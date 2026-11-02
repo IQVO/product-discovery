@@ -231,7 +231,7 @@ func getProduct(ctx context.Context, q usecases.Queries, rawArgs json.RawMessage
 }
 
 // limitReason is the REST adapter's validation text for a bad limit.
-const limitReason = "must be an integer between 1 and 100"
+const limitReason = "must be an integer between 1 and 500"
 
 // decodeArgs decodes a skill's arguments strictly. For the search arguments
 // (asQuery), a value of the wrong JSON type is the same 422 validation-failed
