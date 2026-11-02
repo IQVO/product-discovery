@@ -14,7 +14,7 @@ func testProducts(t *testing.T, e Env) {
 	_, err := e.Products.Get(bg(), "nope")
 	wantErr(t, err, ports.ErrNotFound)
 	full := build(t, spec{
-		id: "p1", title: "Steel Kettle", desc: "Boils", category: "kettles", price: 3000, qty: 4,
+		id: "p1", title: "Steel Kettle", desc: "Boils", category: catKettles, price: 3000, qty: 4,
 		attrs: []productview.Attribute{{Name: "capacity", Value: "1.7", Unit: "l"}},
 	})
 	full.Bullets = []string{"b1", "b2"}
@@ -46,17 +46,17 @@ func testProducts(t *testing.T, e Env) {
 
 func testPurchasableCounts(t *testing.T, e Env) {
 	saveAll(t, e,
-		spec{id: "a", title: "A", category: "kettles", price: 100, qty: 1},
-		spec{id: "b", title: "B", category: "kettles", price: 100, qty: 1},
-		spec{id: "c", title: "C", category: "kettles", price: 100},        // out of stock
-		spec{id: "d", title: "D", category: "garden", price: 100, qty: 2}, // purchasable
-		spec{id: "e", title: "E", category: "garden", qty: 2},             // no price
-		spec{id: "f", title: "F", price: 100, qty: 2},                     // no category
-		spec{id: "g", title: "G", category: "garden", price: 100, qty: 1, discontinued: true},
+		spec{id: "a", title: "A", category: catKettles, price: 100, qty: 1},
+		spec{id: "b", title: "B", category: catKettles, price: 100, qty: 1},
+		spec{id: "c", title: "C", category: catKettles, price: 100},        // out of stock
+		spec{id: "d", title: "D", category: catGarden, price: 100, qty: 2}, // purchasable
+		spec{id: "e", title: "E", category: catGarden, qty: 2},             // no price
+		spec{id: "f", title: "F", price: 100, qty: 2},                      // no category
+		spec{id: "g", title: "G", category: catGarden, price: 100, qty: 1, discontinued: true},
 	)
 	got, err := e.Products.PurchasableByCategory(bg())
 	must(t, err)
-	if want := map[string]int{"kettles": 2, "garden": 1}; !reflect.DeepEqual(got, want) {
+	if want := map[string]int{catKettles: 2, catGarden: 1}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("PurchasableByCategory = %v, want %v", got, want)
 	}
 }

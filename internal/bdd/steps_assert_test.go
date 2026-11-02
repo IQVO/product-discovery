@@ -46,8 +46,11 @@ func registerAssertions(sc *godog.ScenarioContext, w *world) {
 	sc.Step(`^the product "([^"]*)" is not purchasable$`, func(id string) error { return w.flag(id, "purchasable", false) })
 	sc.Step(`^the product "([^"]*)" is not in stock$`, func(id string) error { return w.flag(id, "inStock", false) })
 	sc.Step(`^the product "([^"]*)" is not found$`, func(id string) error {
-		if err := w.get("/products/" + id); err != nil || w.status != 404 {
-			return fmt.Errorf("status %d, err %v: a stub must be invisible", w.status, err)
+		if err := w.get("/products/" + id); err != nil {
+			return fmt.Errorf("get product %s: %w", id, err)
+		}
+		if w.status != 404 {
+			return fmt.Errorf("status %d: a stub must be invisible", w.status)
 		}
 		return nil
 	})
@@ -57,8 +60,11 @@ func registerAssertions(sc *godog.ScenarioContext, w *world) {
 func registerProductFields(sc *godog.ScenarioContext, w *world) {
 	sc.Step(`^the product "([^"]*)" has the title "([^"]*)"$`, func(id, title string) error {
 		p, err := w.product(id)
-		if err != nil || p["title"] != title {
-			return fmt.Errorf("title = %v, %v", p["title"], err)
+		if err != nil {
+			return fmt.Errorf("product %s: %w", id, err)
+		}
+		if p["title"] != title {
+			return fmt.Errorf("title = %v, want %v", p["title"], title)
 		}
 		return nil
 	})
