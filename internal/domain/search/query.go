@@ -26,8 +26,8 @@ const (
 
 // Page sizes: DefaultLimit applies when the caller sends none.
 const (
-	DefaultLimit = 20
-	MaxLimit     = 100
+	DefaultLimit = 100
+	MaxLimit     = 500
 	// MaxTextLength bounds the free-text query (characters).
 	MaxTextLength = 200
 )
@@ -35,6 +35,10 @@ const (
 // ErrValidation is the sentinel every ValidationError matches (problem type
 // validation-failed, HTTP 422).
 var ErrValidation = errors.New("validation failed")
+
+// ErrInvalidCursor is matched by the ValidationError of a cursor that does not
+// belong to this search (HTTP answers it 400 invalid-cursor; A2A keeps 422).
+var ErrInvalidCursor = errors.New("invalid cursor")
 
 // ValidationError names the offending query field.
 type ValidationError struct {
@@ -46,7 +50,12 @@ type ValidationError struct {
 func (e *ValidationError) Error() string { return fmt.Sprintf("%s: %s", e.Field, e.Reason) }
 
 // Is makes errors.Is(err, ErrValidation) true.
-func (e *ValidationError) Is(target error) bool { return target == ErrValidation }
+func (e *ValidationError) Is(target error) bool {
+	return target == ErrValidation || (target == ErrInvalidCursor && e.Field == cursorField)
+}
+
+// cursorField is the field name a cursor ValidationError carries.
+const cursorField = "after"
 
 func invalid(field, reason string) error { return &ValidationError{Field: field, Reason: reason} }
 
@@ -103,10 +112,10 @@ func NewQuery(in Input) (Query, error) {
 	if in.After != "" {
 		c, err := DecodeCursor(in.After)
 		if err != nil || c.Sort != q.Sort {
-			return Query{}, invalid("after", "not a cursor of this search")
+			return Query{}, invalid(cursorField, "not a cursor of this search")
 		}
 		if (c.Mode == ModeBrowse) != q.Browse() {
-			return Query{}, invalid("after", "not a cursor of this search")
+			return Query{}, invalid(cursorField, "not a cursor of this search")
 		}
 		q.After = &c
 	}

@@ -1,11 +1,13 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/IQVO/product-discovery/internal/adapters/inbound/http/page"
 	"github.com/IQVO/product-discovery/internal/application/ports"
 	"github.com/IQVO/product-discovery/internal/domain/search"
 )
@@ -41,6 +43,10 @@ func (s *Server) handleListCategories(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
+	if name := page.Unknown(r, searchFilters...); name != "" {
+		writeProblem(w, r, unknownQueryParameter, "query parameter "+name+" is not declared by this operation")
+		return
+	}
 	in, err := searchInput(r)
 	if err != nil {
 		writeError(w, r, err)
@@ -48,18 +54,35 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := s.Queries.SearchProducts(r.Context(), in)
 	if err != nil {
+		if errors.Is(err, search.ErrInvalidCursor) {
+			err = page.ErrInvalidCursor
+		}
 		writeError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, searchDTO(res))
 }
 
-// searchInput reads the query string of GET /products. A parameter of the
-// wrong type is the same 422 validation-failed as an out-of-range one.
+// searchFilters are the query parameters GET /products declares besides limit and cursor.
+var searchFilters = []string{"q", "categoryId", "inStock", "priceMin", "priceMax", "sort"}
+
+// searchInput reads the query string of GET /products. limit and cursor follow
+// the fleet paging contract (400 problems); a filter of the wrong type is the
+// same 422 validation-failed as an out-of-range one.
 func searchInput(r *http.Request) (search.Input, error) {
 	q := r.URL.Query()
-	in := search.Input{Text: q.Get("q"), CategoryID: q.Get("categoryId"), Sort: q.Get("sort"), After: q.Get("after")}
-	var err error
+	limit, err := page.Limit(r)
+	if err != nil {
+		return search.Input{}, err
+	}
+	cursors := q["cursor"]
+	if len(cursors) > 1 {
+		return search.Input{}, page.ErrInvalidCursor
+	}
+	in := search.Input{Text: q.Get("q"), CategoryID: q.Get("categoryId"), Sort: q.Get("sort"), Limit: limit}
+	if len(cursors) == 1 {
+		in.After = cursors[0]
+	}
 	if in.InStock, err = optBool(q.Get("inStock"), "inStock"); err != nil {
 		return in, err
 	}
@@ -68,13 +91,6 @@ func searchInput(r *http.Request) (search.Input, error) {
 	}
 	if in.PriceMax, err = optInt(q.Get("priceMax"), "priceMax"); err != nil {
 		return in, err
-	}
-	if raw := q.Get("limit"); raw != "" {
-		n, err := strconv.Atoi(raw)
-		if err != nil || n == 0 {
-			return in, &search.ValidationError{Field: "limit", Reason: "must be an integer between 1 and 100"}
-		}
-		in.Limit = n
 	}
 	return in, nil
 }

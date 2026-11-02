@@ -39,10 +39,10 @@ func TestRealWiringFoldsEventsFromThreeTopicsIntoOneSearchableProduct(t *testing
 		return r.status == 200 && r.json(t)["purchasable"] == true
 	})
 	search := s.get(t, "/products?q=kettles").json(t)
-	if hits := search["hits"].([]any); len(hits) != 1 || hits[0].(map[string]any)["categoryPath"].([]any)[0] != "Kettles" {
+	if hits := search["items"].([]any); len(hits) != 1 || hits[0].(map[string]any)["categoryPath"].([]any)[0] != "Kettles" {
 		t.Fatalf("search = %v", search)
 	}
-	if typo := s.get(t, "/products?q=ketle").json(t)["hits"].([]any); len(typo) != 1 {
+	if typo := s.get(t, "/products?q=ketle").json(t)["items"].([]any); len(typo) != 1 {
 		t.Fatalf("the pg_trgm fallback must find the typo: %v", typo)
 	}
 	cats := s.get(t, "/categories").json(t)["categories"].([]any)

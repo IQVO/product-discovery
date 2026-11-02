@@ -387,7 +387,7 @@ func TestWireSearchValidationFailuresAre422(t *testing.T) {
 	}{
 		"unknown sort":       {map[string]any{"sort": "cheapest"}, "sort"},
 		"limit zero":         {map[string]any{"limit": 0}, "limit"},
-		"limit too big":      {map[string]any{"limit": 101}, "limit"},
+		"limit too big":      {map[string]any{"limit": 501}, "limit"},
 		"limit negative":     {map[string]any{"limit": -1}, "limit"},
 		"limit a string":     {map[string]any{"limit": "5"}, "limit"},
 		"limit fractional":   {map[string]any{"limit": 1.5}, "limit"},

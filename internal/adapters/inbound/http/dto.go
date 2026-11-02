@@ -107,10 +107,10 @@ type suggestionResponse struct {
 }
 
 type searchResponse struct {
-	Hits                []hitResponse        `json:"hits"`
+	Items               []hitResponse        `json:"items"`
 	Facets              []facetResponse      `json:"facets"`
 	CategorySuggestions []suggestionResponse `json:"categorySuggestions,omitempty"`
-	Next                *string              `json:"next"`
+	NextCursor          string               `json:"nextCursor,omitempty"`
 }
 
 func hitDTO(h usecases.HitView) hitResponse {
@@ -129,17 +129,14 @@ func hitDTO(h usecases.HitView) hitResponse {
 }
 
 func searchDTO(r usecases.SearchPage) searchResponse {
-	out := searchResponse{Hits: []hitResponse{}, Facets: facetsDTO(r.Facets)}
+	out := searchResponse{Items: []hitResponse{}, Facets: facetsDTO(r.Facets)}
 	for _, h := range r.Hits {
-		out.Hits = append(out.Hits, hitDTO(h))
+		out.Items = append(out.Items, hitDTO(h))
 	}
 	for _, c := range r.Suggestions {
 		out.CategorySuggestions = append(out.CategorySuggestions, suggestionResponse{CategoryID: c.ID, Name: c.Name})
 	}
-	if r.Next != "" {
-		n := r.Next
-		out.Next = &n
-	}
+	out.NextCursor = r.Next
 	return out
 }
 

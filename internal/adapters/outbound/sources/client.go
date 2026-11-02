@@ -98,7 +98,7 @@ func (c Client) once(ctx context.Context, target string, out any) (retry bool, e
 func pageQuery(after string, limit int) url.Values {
 	q := url.Values{}
 	if after != "" {
-		q.Set("after", after)
+		q.Set("cursor", after)
 	}
 	if limit > 0 {
 		q.Set("limit", strconv.Itoa(limit))
