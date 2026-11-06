@@ -95,6 +95,30 @@ func (c Client) once(ctx context.Context, target string, out any) (retry bool, e
 	return false, nil
 }
 
+// page is the fleet's collection envelope {"items":[...],"nextCursor":"..."} (REST guideline
+// section 3). Decoding refuses a body whose "items" is missing or null: a 200 that carries a
+// retired key (the old "listings") would otherwise read as an empty page and the rebuild would
+// silently drop every row of that source.
+type page[T any] struct {
+	Items      []T
+	NextCursor string
+}
+
+func (p *page[T]) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		Items      *[]T   `json:"items"`
+		NextCursor string `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if raw.Items == nil {
+		return errors.New(`not a page: "items" is missing or null`)
+	}
+	p.Items, p.NextCursor = *raw.Items, raw.NextCursor
+	return nil
+}
+
 func pageQuery(after string, limit int) url.Values {
 	q := url.Values{}
 	if after != "" {
