@@ -9,13 +9,13 @@ sidebar_position: 3
 
 `cmd/api` and `cmd/a2a` follow the fleet observability standard
 ([ADR 0005](/docs/adr/0005-fleet-observability-standard)): JSON logs on stdout that carry `trace_id` and
-`span_id`, an OTLP/gRPC export of traces and metrics, one business counter, and the Go runtime metrics.
+`span_id`, an OTLP/gRPC export of traces and metrics, two service counters (searches and poison messages), and the Go runtime metrics.
 `cmd/rebuild` exports the same way once, on exit. This page lists what the code emits; the dashboard and
 alert rules listed at the end are the ones that exist in `warehouse-infra` on `develop`. Nothing here is a
 captured run.
 
 Source: `internal/adapters/outbound/telemetry/` (`telemetry.go`, `search_metrics.go`, `slogotel.go`),
-`cmd/api/telemetry.go`, `cmd/a2a/telemetry.go`, `cmd/rebuild/main.go`.
+`internal/adapters/inbound/kafka/poison.go`, `cmd/api/telemetry.go`, `cmd/a2a/telemetry.go`, `cmd/rebuild/main.go`.
 
 ## Exporter and resource
 
@@ -40,12 +40,15 @@ default); see [Configuration](/docs/operations/configuration) and the [Runbook](
 | Instrument | Type | Unit | Attributes | Emitted by | Meaning |
 | --- | --- | --- | --- | --- | --- |
 | `discovery.searches.served` | Int64 counter | `{search}` | `outcome` = `served`, `empty` or `failed`; `reason` = `validation-failed` or `internal-error` (only when `outcome` is `failed`) | `cmd/api` and `cmd/a2a`, once per `SearchProducts` call (REST `GET /products` and the `search_products` skill) | `served`: a page with hits, or a continuation page; `empty`: a first page that found nothing even after the trigram retry; `failed`: the search answered an error. A rising `empty` share means shoppers look for products the storefront does not show (check the projection feeds); `failed` with `internal-error` means the search itself is failing; `validation-failed` is a client sending bad queries |
+| `discovery.kafka.poison_messages` | Int64 counter | `{message}` | `consumer` = `offer-availability`, `product-content` or `pricing`; `disposition` = `skipped` or `dead-lettered`; `reason` = `invalid-envelope`, `unknown-type` or `unappliable-payload` | `cmd/api` only (the three Kafka consumers; `cmd/a2a` and `cmd/rebuild` run no consumer) | Adds 1 for each message a consumer can never apply, so the paths that used to leave only a log line (or nothing) are countable. `skipped` + `invalid-envelope`: the value is not a CloudEvents 1.0 message, committed past (WARN `skipping a message that is not a valid CloudEvent`). `skipped` + `unknown-type`: a `type` this consumer has no handler for, committed past with no log line. `dead-lettered` + `unappliable-payload`: a handled type whose `data` cannot be decoded or folded, sent at once to `<topic>.dlq` without retry (WARN `dead-lettering an event that can never be applied`). `skipped` + `unappliable-payload` is the same payload case when dead-lettering is off, which the production constructor never does. A message that failed transiently and was dead-lettered after its 5 attempts is not counted here. Anything on `skipped` means the message is gone from the projection for good |
 | `http.server.request.duration` | Float64 histogram | `s` | `http.method`, `http.scheme`, `http.route` (the chi pattern, for example `/products/{catalogItemId}`) | `cmd/api` only (otelchi metric middleware) | Request duration; bucket bounds 5 ms to 10 s (0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10) |
 | Go runtime metrics | various | various | none of its own | `cmd/api`, `cmd/a2a`, `cmd/rebuild` | The OpenTelemetry contrib `runtime` instrumentation (goroutines, heap, GC). The dashboard reads them as `go_goroutine_count` and `go_memory_used_bytes` (with a fallback to the older `runtime_go_*` names) |
 
-The counter is defined in `internal/adapters/outbound/telemetry/search_metrics.go` under the meter name
+The search counter is defined in `internal/adapters/outbound/telemetry/search_metrics.go` under the meter name
 `github.com/IQVO/product-discovery`; its Prometheus name on the fleet dashboard is
-`discovery_searches_served_total`. The use case calls exactly one of `SearchServed`, `SearchEmpty`,
+`discovery_searches_served_total`. The poison counter is defined in `internal/adapters/inbound/kafka/poison.go`
+under the same meter name; it binds to the real meter provider because the composition root builds the
+consumers after telemetry setup, and it is a no-op until then. The dashboard has no panel for it. The use case calls exactly one of `SearchServed`, `SearchEmpty`,
 `SearchFailed` per search (`internal/application/usecases/queries_metrics.go`). The other Tier-2 instruments
 of the fleet convention do not exist here because the service has no outbox, no relay and no write API: there
 is no lag or backlog gauge to export. There is no `/metrics` endpoint and no Prometheus scrape; everything
@@ -123,7 +126,7 @@ Only what `warehouse-infra` has on `develop` is listed.
 | Alert `WarehousePodRestarting` (warning) | same group | a `product-discovery-*` container restarted twice or more in 15 minutes (boot-retry exhaustion, a failed migration, a consumer that stopped on purpose, an OOM kill) |
 | Alerts `WarehouseApiAvailabilityBurnFast` / `WarehouseApiLatencyBurnFast` (critical) and `...BurnSlow` (warning) | group `warehouse-product-discovery-slo` | multi-window burn rate of the 99 % availability and 95 %-under-500 ms latency SLOs on the Kong routes |
 
-The alerts are Kong-edge and pod-restart alerts only. No alert reads `discovery.searches.served`, consumer
+The alerts are Kong-edge and pod-restart alerts only. No alert reads `discovery.searches.served`, `discovery.kafka.poison_messages`, consumer
 lag or the dead-letter topics: those are not covered by shipped rules.
 
 ## Suggested checks that are not shipped
@@ -133,6 +136,7 @@ These are built from data that exists; they are suggestions, not rules in the re
 | Signal | How to read it | Suggested alert |
 | --- | --- | --- |
 | Projection feed stalled | consumer-group lag of the three groups in Kafka tooling; repeated `handling failed; retrying the same message` for one `offset` | lag growing for several minutes |
+| Poison messages | `discovery.kafka.poison_messages`, in particular any increase with `disposition="skipped"` (the Prometheus name is not confirmed here: no dashboard or rule in `warehouse-infra` reads it) | any increase |
 | Dead letters | depth of `retailnetwork.offer-availability.events.dlq`, `retailnetwork.product-content.events.dlq`, `retailnetwork.pricing.events.dlq`; WARN `dead-lettering an event ...`, ERROR `... dead-lettering the message` | any message |
 | Empty searches | `sum(rate(discovery_searches_served_total{outcome="empty"}[15m])) / sum(rate(discovery_searches_served_total[15m]))` | a sustained jump |
 | Failing searches | `discovery_searches_served_total{outcome="failed",reason="internal-error"}` | any sustained rate |
