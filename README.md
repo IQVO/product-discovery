@@ -177,6 +177,7 @@ carried in the `traceparent` header of each consumed event.
 | Instrument | Kind | Source |
 |---|---|---|
 | `discovery.searches.served` | counter, attributes `outcome`, `reason` | **this service's business metric** |
+| `discovery.kafka.poison_messages` | counter, attributes `consumer`, `disposition`, `reason` | the Kafka consumers: messages skipped or dead-lettered because they can never be applied |
 | HTTP request duration | histogram + one server span and request-log line per call | the HTTP adapter, sharing a trace id |
 | `go.*` runtime metrics | various | OTel Go runtime instrumentation |
 

@@ -153,6 +153,6 @@ most 10 connections per process with a 5 s statement timeout. Schema detail: [En
   process after 10 consecutive fetch failures. See the [Runbook](/docs/operations/runbook).
 - **Shutdown order** (`cmd/api`): readiness flips to 503, wait `SHUTDOWN_DRAIN_DELAY`, drain HTTP (10 s), stop
   and await the consumers (10 s each), close the pool, flush telemetry.
-- **Observability.** JSON logs with trace correlation, OTLP traces and metrics, one business counter. See
+- **Observability.** JSON logs with trace correlation, OTLP traces and metrics, a search counter and a poison-message counter. See
   [Observability](/docs/operations/observability).
 - **No authentication** on REST or A2A, fleet-wide.

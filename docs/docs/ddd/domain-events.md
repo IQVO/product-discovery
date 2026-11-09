@@ -36,7 +36,7 @@ Source: `internal/adapters/kafka/cloudevents/cloudevents.go`, `apis/asyncapi.yam
 
 - **Idempotent on the id:** the id is inserted into `processed_events` in the same transaction as the fold; a
   repeat is acknowledged without effect.
-- **Dispatch on the full `type` string**, never on a suffix; unknown types are ignored.
+- **Dispatch on the full `type` string**, never on a suffix; unknown types are skipped, committed and counted in `discovery.kafka.poison_messages` (`reason=unknown-type`).
 - **Ordering:** within one producer, events with the same key arrive in order. Across keys and producers
   nothing is promised, so the per-source guards sit on top of the inbox: listing `asOf`, content `revision`,
   price `version`, tree `version`. A fact for an item whose `CatalogItemCreated` has not landed creates an
