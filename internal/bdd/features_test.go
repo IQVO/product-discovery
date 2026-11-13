@@ -40,6 +40,11 @@ type world struct {
 	body   string
 	json   map[string]any
 	pages  []string
+
+	// Wave 2: the rebuild snapshot fake and its report.
+	snap       *snapshot
+	rebuild    usecases.Report
+	rebuildErr error
 }
 
 func newWorld() *world {
@@ -48,7 +53,7 @@ func newWorld() *world {
 		Products: s.Products(), Categories: s.Categories(), Listings: s.Listings(), Inbox: s.Inbox(),
 		UoW: s.UnitOfWork(), Search: s.Search(),
 	}
-	w := &world{store: s, deps: d, consumer: usecases.Consumer{Deps: d}}
+	w := &world{store: s, deps: d, consumer: usecases.Consumer{Deps: d}, snap: &snapshot{}}
 	w.srv = httptest.NewServer(inboundhttp.NewRouter(&inboundhttp.Server{Queries: usecases.Queries{Deps: d}}, nil, ""))
 	return w
 }
@@ -74,4 +79,5 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	registerAssertions(sc, w)
 	registerResults(sc, w)
 	registerCategories(sc, w)
+	registerWave2(sc, w)
 }
