@@ -71,7 +71,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Ecosystem',
-      items: ['ecosystem/integration'],
+      items: ['ecosystem/integration', 'mcp/tools'],
     },
     {
       type: 'category',

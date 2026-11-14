@@ -26,25 +26,22 @@ type money struct {
 	Currency    string `json:"currency"`
 }
 
-type pricePage struct {
-	Items []struct {
-		CatalogItemID  string `json:"catalogItemId"`
-		State          string `json:"state"`
-		ListPrice      money  `json:"listPrice"`
-		EffectivePrice money  `json:"effectivePrice"`
-		Version        int64  `json:"version"`
-	} `json:"items"`
-	NextCursor string `json:"nextCursor"`
+type priceRow struct {
+	CatalogItemID  string `json:"catalogItemId"`
+	State          string `json:"state"`
+	ListPrice      money  `json:"listPrice"`
+	EffectivePrice money  `json:"effectivePrice"`
+	Version        int64  `json:"version"`
 }
 
 // ListItemPrices implements ports.PriceSource.
 func (p Pricing) ListItemPrices(ctx context.Context, after string, limit int) (readmodel.Page[readmodel.PriceRow], error) {
-	var page pricePage
-	if err := p.get(ctx, pathItemPrices, pageQuery(after, limit), &page); err != nil {
+	var pg page[priceRow]
+	if err := p.get(ctx, pathItemPrices, pageQuery(after, limit), &pg); err != nil {
 		return readmodel.Page[readmodel.PriceRow]{}, err
 	}
-	out := readmodel.Page[readmodel.PriceRow]{Next: page.NextCursor}
-	for _, i := range page.Items {
+	out := readmodel.Page[readmodel.PriceRow]{Next: pg.NextCursor}
+	for _, i := range pg.Items {
 		out.Items = append(out.Items, readmodel.PriceRow{
 			CatalogItemID: i.CatalogItemID, Withdrawn: i.State == "WITHDRAWN", Currency: i.EffectivePrice.Currency,
 			ListPriceMinor: i.ListPrice.AmountMinor, EffectivePriceMinor: i.EffectivePrice.AmountMinor, Version: i.Version,
@@ -58,37 +55,34 @@ type ProductContent struct{ Client }
 
 var _ ports.ContentSource = ProductContent{}
 
-type contentPage struct {
-	Items []struct {
-		CatalogItemID string   `json:"catalogItemId"`
-		State         string   `json:"state"`
-		Revision      int64    `json:"revision"`
-		Description   string   `json:"description"`
-		Bullets       []string `json:"bullets"`
-		Attributes    []struct {
-			Name  string `json:"name"`
-			Value string `json:"value"`
-			Unit  string `json:"unit"`
-		} `json:"attributes"`
-		Media []struct {
-			MediaID string `json:"mediaId"`
-			URL     string `json:"url"`
-			AltText string `json:"altText"`
-			Role    string `json:"role"`
-		} `json:"media"`
-		PrimaryCategoryID string `json:"primaryCategoryId"`
-	} `json:"items"`
-	NextCursor string `json:"nextCursor"`
+type contentRow struct {
+	CatalogItemID string   `json:"catalogItemId"`
+	State         string   `json:"state"`
+	Revision      int64    `json:"revision"`
+	Description   string   `json:"description"`
+	Bullets       []string `json:"bullets"`
+	Attributes    []struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+		Unit  string `json:"unit"`
+	} `json:"attributes"`
+	Media []struct {
+		MediaID string `json:"mediaId"`
+		URL     string `json:"url"`
+		AltText string `json:"altText"`
+		Role    string `json:"role"`
+	} `json:"media"`
+	PrimaryCategoryID string `json:"primaryCategoryId"`
 }
 
 // ListProductContents implements ports.ContentSource.
 func (c ProductContent) ListProductContents(ctx context.Context, after string, limit int) (readmodel.Page[readmodel.ContentRow], error) {
-	var page contentPage
-	if err := c.get(ctx, pathProductContents, pageQuery(after, limit), &page); err != nil {
+	var pg page[contentRow]
+	if err := c.get(ctx, pathProductContents, pageQuery(after, limit), &pg); err != nil {
 		return readmodel.Page[readmodel.ContentRow]{}, err
 	}
-	out := readmodel.Page[readmodel.ContentRow]{Next: page.NextCursor}
-	for _, i := range page.Items {
+	out := readmodel.Page[readmodel.ContentRow]{Next: pg.NextCursor}
+	for _, i := range pg.Items {
 		pub := productview.PublishedContent{Revision: i.Revision, Description: i.Description, Bullets: i.Bullets, CategoryID: i.PrimaryCategoryID}
 		for _, a := range i.Attributes {
 			pub.Attributes = append(pub.Attributes, productview.Attribute(a))

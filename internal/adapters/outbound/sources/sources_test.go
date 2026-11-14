@@ -57,7 +57,7 @@ func TestCatalogMapsTheNetworkContract(t *testing.T) {
 
 func TestListingsMapTheNetworkContract(t *testing.T) {
 	c, _ := serve(t, map[string]string{
-		"/listings": `{"listings":[{"listingId":"L1","catalogItemId":"I1","nodeId":"N","state":"SUPPRESSED",
+		"/listings": `{"items":[{"listingId":"L1","catalogItemId":"I1","nodeId":"N","state":"SUPPRESSED",
 			"availability":{"availableQty":4,"basis":"PHYSICAL","asOf":"2026-10-25T09:00:00+02:00"}},
 			{"listingId":"L2","catalogItemId":"I1","nodeId":"N","state":"LIVE","availability":{"availableQty":0,"basis":"UNKNOWN"}}]}`,
 	})
@@ -113,6 +113,43 @@ func TestContentAndCategoriesMapTheStorefrontContract(t *testing.T) {
 	same(t, "tree", tree, readmodel.CategoryTree{Version: 4, Categories: []categoryview.Category{
 		{ID: "c1", Name: "One", Path: "One"}, {ID: "c2", ParentID: "c1", Name: "Two", Path: "One/Two"},
 	}})
+}
+
+// A 200 that is not a {items,nextCursor} page (a retired key, null or missing items) must fail
+// the rebuild loudly: reading it as an empty page would silently drop every row of the source.
+func TestRefusesA200ThatIsNotAPage(t *testing.T) {
+	bodies := map[string]string{
+		"retired key":  `{"listings":[{"listingId":"L1"}],"nextCursor":"x"}`,
+		"null items":   `{"items":null}`,
+		"empty object": `{}`,
+		"bare array":   `[{"listingId":"L1"}]`,
+	}
+	for name, body := range bodies {
+		t.Run(name, func(t *testing.T) {
+			c, _ := serve(t, map[string]string{"/catalog": body, "/listings": body, "/item-prices": body, "/product-contents": body})
+			ctx := context.Background()
+			if _, err := (sources.OfferAvailability{Client: c}).ListCatalog(ctx, "", 0); err == nil {
+				t.Error("catalog read a non-page as a page")
+			}
+			if _, err := (sources.OfferAvailability{Client: c}).ListListings(ctx, "", 0); err == nil {
+				t.Error("listings read a non-page as a page")
+			}
+			if _, err := (sources.Pricing{Client: c}).ListItemPrices(ctx, "", 0); err == nil {
+				t.Error("item-prices read a non-page as a page")
+			}
+			if _, err := (sources.ProductContent{Client: c}).ListProductContents(ctx, "", 0); err == nil {
+				t.Error("product-contents read a non-page as a page")
+			}
+		})
+	}
+}
+
+func TestAnEmptyItemsArrayIsAnEmptyPage(t *testing.T) {
+	c, _ := serve(t, map[string]string{"/listings": `{"items":[]}`})
+	got, err := sources.OfferAvailability{Client: c}.ListListings(context.Background(), "", 0)
+	if err != nil || len(got.Items) != 0 || got.Next != "" {
+		t.Fatalf("got %+v err %v", got, err)
+	}
 }
 
 func TestRetriesServerErrorsButNotClientErrors(t *testing.T) {

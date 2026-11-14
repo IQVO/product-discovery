@@ -18,3 +18,4 @@ sidebar_position: 0
 | [0006](./0006-rebuild-as-default-off-helm-job.md) | The rebuild binary ships as an optional, default-off Helm Job | Accepted (2026-10-27) |
 | [0007](./0007-a2a-inbound-adapter.md) | A2A inbound adapter | Accepted (2026-10-30) |
 | [0008](./0008-adopt-the-fleet-rest-api-guideline.md) | Adopt the fleet REST API guideline | Accepted (2026-11-01) |
+| [0009](./0009-read-only-mcp-server.md) | A read-only MCP server | Accepted (2026-11-14) |

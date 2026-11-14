@@ -39,7 +39,7 @@ func upstream(t *testing.T, routes map[string]string) string {
 func TestRebuildSeedsARealDatabaseAndIsRepeatable(t *testing.T) {
 	oa := upstream(t, map[string]string{
 		"/catalog":  `{"items":[{"catalogItemId":"I1","title":"Steel Kettle","state":"ACTIVE"}]}`,
-		"/listings": `{"listings":[{"listingId":"L1","catalogItemId":"I1","nodeId":"N","state":"LIVE","availability":{"availableQty":3,"asOf":"2026-10-25T09:00:00Z"}}]}`,
+		"/listings": `{"items":[{"listingId":"L1","catalogItemId":"I1","nodeId":"N","state":"LIVE","availability":{"availableQty":3,"asOf":"2026-10-25T09:00:00Z"}}]}`,
 	})
 	pr := upstream(t, map[string]string{"/item-prices": `{"items":[{"catalogItemId":"I1","state":"ACTIVE","listPrice":{"amountMinor":900,"currency":"BRL"},"effectivePrice":{"amountMinor":800,"currency":"BRL"},"version":3}]}`})
 	pc := upstream(t, map[string]string{

@@ -32,7 +32,7 @@ check a design decision against this fleet's standing architecture.
 3. **Runtime rule.** `cmd/**` must not import `internal/adapters/outbound/memory`
    or `repocontract` (`TestRuntimeBinaryHasNoInMemoryAdapters`,
    `TestRuntimeBinaryDoesNotImportTheRepositoryContract`); `/readyz` keeps its
-   empty-topic Kafka metadata check. This repo has no outbox, no MCP adapter and no analytics
+   empty-topic Kafka metadata check. This repo has no outbox, a read-only MCP adapter (ADR 0009) and no analytics
    read side.
 5. **Kafka consumer-group pattern correctness.** A new Kafka consumer
    must use either (a) a named long-lived constant for a genuinely

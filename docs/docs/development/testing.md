@@ -17,12 +17,12 @@ this page is a captured run.
 | --- | --- | --- |
 | Unit, domain | 56 top-level test functions in 4 packages (`productview` 24, `search` 20, `categoryview` 10, `shared` 2) | `make test` |
 | Unit, application | 23 in `internal/application/usecases` (6 files, including concurrency and metrics) | `make test` |
-| Unit and httptest, adapters and binaries | `inbound/http` 19, `inbound/kafka` 32, `inbound/a2a` 20, `inbound/requestlog` 4, `kafka/cloudevents` 6, `outbound/kafka` 4, `outbound/memory` 1 (the repository contract), `outbound/sources` 7, `outbound/telemetry` 11, `bootretry` 6, `cmd/api` 16, `cmd/a2a` 14, `cmd/rebuild` 6 | `make test` |
+| Unit and httptest, adapters and binaries | `inbound/http` 19, `inbound/kafka` 32, `inbound/a2a` 20, `inbound/mcp` 21, `inbound/requestlog` 4, `kafka/cloudevents` 6, `outbound/kafka` 4, `outbound/memory` 1 (the repository contract), `outbound/sources` 7, `outbound/telemetry` 11, `bootretry` 6, `cmd/api` 16, `cmd/a2a` 14, `cmd/mcp` 15, `cmd/rebuild` 6 | `make test` |
 | Coverage gate | 90 % over `./internal/domain/...,./internal/application/...` (`COVERAGE_THRESHOLD`) | `make coverage` |
 | BDD (godog / Gherkin) | 3 feature files, **18 scenarios** (`search` 8, `folding` 6, `categories` 4), 60 step lines; strict mode | `make bdd` |
-| Integration (testcontainers) | 7 tests behind `//go:build integration` in 8 files: `cmd/api` 3, `cmd/a2a` 1, `cmd/rebuild` 1, `outbound/postgres` 2 (plus one `TestMain` in each package that boots the shared container) | `make integration` |
+| Integration (testcontainers) | 8 tests behind `//go:build integration` in 9 files: `cmd/api` 3, `cmd/a2a` 1, `cmd/mcp` 1, `cmd/rebuild` 1, `outbound/postgres` 2 (plus one `TestMain` in each package that boots the shared container) | `make integration` |
 | Contract | The repository contract suite (`internal/adapters/outbound/repocontract`) runs against the in-memory store and against real Postgres; Spectral lints both specs; no consumer-driven or schemathesis contract tests | `make test`, `make integration`, CI `api-lint` |
-| Architecture fitness | 33 top-level test functions in `internal/architecture` (14 files); two skip here on purpose, see below | `make arch-test` |
+| Architecture fitness | 44 top-level test functions in `internal/architecture` (17 files); two skip here on purpose, see below | `make arch-test` |
 | Mutation (gremlins) | efficacy 99, mutant coverage 99 (`.gremlins.yaml`); the file records a 100 % / 100 % measurement over every package of `internal/domain` | `make mutation`, `make mutation-full` |
 | Evals | none: `EVALS.md` at the repository root is the harness template's note about agent evaluation on another service; it measures nothing in this repository | none |
 
@@ -34,7 +34,7 @@ package list.
 | Target | Runs | Notes |
 | --- | --- | --- |
 | `make help` | prints the target list | default target |
-| `make build` | `go build ./...` | compiles the three binaries |
+| `make build` | `go build ./...` | compiles the four binaries |
 | `make vet` | `go vet ./...` | |
 | `make fmt` / `make fmt-check` | `gofmt -w .` / fail when `gofmt -l .` is non-empty | |
 | `make lint` | `golangci-lint run --allow-parallel-runners ./...` | pinned `v2.14.0`, config `.golangci.yml` |
@@ -165,11 +165,14 @@ make arch-test
 | `integration` | `go test -tags=integration ./... -race -count=1` | always |
 | `mutation-fast` | gremlins v0.6.0 on every `./internal/domain/*/` package; blocking | always |
 | `mutation` | `gremlins unleash ./internal/domain --workers 1 --timeout-coefficient 30`, `harness:red` issue handling | schedule and dispatch only |
+| `drift` | `deadcode -test ./...`, `go mod tidy -diff` and `scripts/coverage-quality.py` (high-coverage functions with a surviving mutant) written to the job summary; `harness:red` issue on a scheduled failure | schedule and dispatch only |
 | `api-lint` | Spectral on `apis/openapi.yaml` (`.spectral.yaml`) and `apis/asyncapi.yaml` (`.spectral.asyncapi.yaml`), `--fail-severity=warn` | always |
 | `vuln` | `govulncheck ./...` | always |
+| `docs-api-drift` | `npm ci`, `npm run clean-api-docs` and `npm run gen-api-docs` in `docs/`, then fails when `docs/docs/api-reference/rest` differs from what is committed | always |
 | `helm-lint` | `ct lint` and `helm lint` with `ci/default-values.yaml` and `ci/all-components-values.yaml` | pull requests only |
 | `chart-tests` | every `charts/product-discovery/tests/*.sh` and `test_*.py` (`render_test.sh`, `test_service_selectors.py`); a test that prints `SKIP` fails the job | always |
 | `arch-test` | `go test ./internal/architecture/... -v` | always |
+| `trivy-scan` | builds the image locally (not pushed), uploads a Trivy SARIF report (CRITICAL/HIGH/MEDIUM) and fails on a CRITICAL or HIGH OS/library finding that has a fix | pull requests only |
 | `docker-publish` | build and push `ghcr.io/iqvo/product-discovery`, cosign signature, SBOM; needs the jobs above | push to `main` only |
 | `release` | tags the next patch version, retags the image, packages and pushes the Helm chart, creates the GitHub release | push to `main` only, after `docker-publish` |
 

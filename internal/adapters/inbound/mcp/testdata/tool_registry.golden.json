@@ -1,0 +1,405 @@
+[
+  {
+    "_meta": {
+      "com.warehouse/authority": "L1"
+    },
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Read the full view of one catalogue item by catalogItemId: title, hazmat and fragile flags, description, bullets, attributes, media, categoryId and categoryPath (once content is published), list and effective price (once priced), inStock and purchasable. Read-only; an unknown id, an item the item master has not announced yet or an id that cannot name an item fails with not-found.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "catalogItemId": {
+          "description": "the catalogue item id of the product, e.g. I-1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catalogItemId"
+      ],
+      "type": "object"
+    },
+    "name": "get_product",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "unit": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "bullets": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "catalogItemId": {
+          "type": "string"
+        },
+        "categoryId": {
+          "type": "string"
+        },
+        "categoryPath": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "effectivePrice": {
+          "additionalProperties": false,
+          "properties": {
+            "amountMinor": {
+              "type": "integer"
+            },
+            "currency": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "amountMinor",
+            "currency"
+          ],
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "fragile": {
+          "type": "boolean"
+        },
+        "hazmat": {
+          "type": "boolean"
+        },
+        "inStock": {
+          "type": "boolean"
+        },
+        "listPrice": {
+          "additionalProperties": false,
+          "properties": {
+            "amountMinor": {
+              "type": "integer"
+            },
+            "currency": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "amountMinor",
+            "currency"
+          ],
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "media": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "altText": {
+                "type": "string"
+              },
+              "mediaId": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "mediaId",
+              "url",
+              "altText",
+              "role"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "purchasable": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "catalogItemId",
+        "title",
+        "hazmat",
+        "fragile",
+        "inStock",
+        "purchasable"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "_meta": {
+      "com.warehouse/authority": "L1"
+    },
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Search the storefront catalogue for purchasable products: optional free text (full-text over title, category and attributes with a typo fallback), categoryId, inStock, priceMin and priceMax (effective price in minor units), sort (relevance, price-asc, price-desc, title), limit (1 to 500, default 100) and cursor. Returns items (catalogItemId, title, effectivePrice, primaryMedia, categoryPath, inStock, purchasable), facets (category, price band, in-stock), categorySuggestions for a product-type query and nextCursor (omitted on the last page): pass it back as cursor with the same filters and sort for the next page. Read-only; a bad value fails with validation-failed, a bad limit with invalid-limit and a foreign cursor with invalid-cursor.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryId": {
+          "description": "optional category id: restrict to that category and its subtree",
+          "type": "string"
+        },
+        "cursor": {
+          "description": "optional opaque cursor: the nextCursor of the previous page, passed back unchanged with the same filters and sort",
+          "type": "string"
+        },
+        "inStock": {
+          "description": "optional filter: true for in-stock products only, false for products that are not in stock",
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "limit": {
+          "description": "optional page size, 1 to 500; omitted means 100",
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
+        "priceMax": {
+          "description": "optional upper bound of the effective price in minor units of the currency, not negative",
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
+        "priceMin": {
+          "description": "optional lower bound of the effective price in minor units of the currency, not negative",
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
+        "q": {
+          "description": "optional free-text query, at most 200 characters; a product-type query also returns categorySuggestions",
+          "type": "string"
+        },
+        "sort": {
+          "description": "optional ordering: relevance, price-asc, price-desc or title; omitted means relevance",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_products",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "categorySuggestions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "categoryId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "categoryId",
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "facets": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "values": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "count"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "values"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "items": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "catalogItemId": {
+                "type": "string"
+              },
+              "categoryId": {
+                "type": "string"
+              },
+              "categoryPath": {
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "effectivePrice": {
+                "additionalProperties": false,
+                "properties": {
+                  "amountMinor": {
+                    "type": "integer"
+                  },
+                  "currency": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "amountMinor",
+                  "currency"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "inStock": {
+                "type": "boolean"
+              },
+              "primaryMedia": {
+                "additionalProperties": false,
+                "properties": {
+                  "altText": {
+                    "type": "string"
+                  },
+                  "mediaId": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "mediaId",
+                  "url",
+                  "altText",
+                  "role"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
+              "purchasable": {
+                "type": "boolean"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "catalogItemId",
+              "title",
+              "inStock",
+              "purchasable"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nextCursor": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "facets"
+      ],
+      "type": "object"
+    }
+  }
+]

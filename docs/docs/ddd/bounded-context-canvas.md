@@ -129,6 +129,7 @@ configurable (A15); a rebuild never rewinds a known listing state (A16).
 | --- | --- |
 | Searches by outcome (`served`, `empty`, `failed` with reason) | `discovery.searches.served` ([Observability](/docs/operations/observability)) |
 | Request duration by route | `http.server.request.duration` |
+| Messages skipped or dead-lettered because they can never be applied | `discovery.kafka.poison_messages` by `consumer`, `disposition`, `reason` |
 | Consumer lag of the three groups, dead-letter depth | Kafka tooling; not exported by the service |
 | Guard regressions (an older fact overwriting a newer one) | 0 by construction; pinned by the fold tests and the godog suite |
 | Inbox duplicates acknowledged | `processed_events` rows |

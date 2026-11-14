@@ -210,6 +210,42 @@ a2a:
       cpu: 100m
       memory: 128Mi
 
+# MCP (Model Context Protocol) server (cmd/mcp, ADR 0009): a READ-ONLY inbound
+# adapter over the SAME read use cases as GET /products and
+# GET /products/{catalogItemId}. Tools: search_products and get_product (both
+# authority L1), plus one resource and one prompt. Streamable HTTP only, on
+# /mcp and /. It reads the api's Postgres and nothing else: no Kafka (it
+# consumes and publishes nothing), no consumer group, no outbox, no call to
+# another context. Unauthenticated like every fleet endpoint. Off by default
+# (warehouse-infra turns it on). The binary ships in the same image as /app/mcp.
+mcp:
+  enabled: false
+  replicaCount: 1
+  # MCP_ADDR the binary listens on; keep in sync with service.targetPort.
+  # 8080 is the api and 8093 the A2A agent, so 8090 (the fleet's MCP port).
+  httpAddr: ":8090"
+  service:
+    type: ClusterIP
+    port: 8090
+    targetPort: 8090
+  # Gateway API exposure (mcp-route.yaml): the path below, rewritten to /mcp
+  # (the SDK's canonical endpoint). Off by default; warehouse-infra turns it on
+  # with the real parentRefs.
+  route:
+    enabled: false
+    path: "/api/mcp/product-discovery"
+    parentRefs:
+      - name: ""
+        namespace: ""
+        sectionName: "http"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
 # Extra env vars appended to the api container as a raw list. The chart refuses
 # any *_MODE variable (this service has no mode: Postgres and Kafka are the only
 # runtime), any variable the chart renders itself and any *_CONSUMER_GROUP (the

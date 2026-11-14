@@ -23,13 +23,14 @@ listing availability), the storefront's `product-content` (content and the categ
 producers can give alone. A product that cannot be bought is still shown, as currently unavailable.
 
 :::info What runs on this branch
-Three binaries: `cmd/api` (REST on `:8080` plus three always-on Kafka consumers), `cmd/a2a` (a read-only
-Agent2Agent agent on `:8093`, [ADR 0007](/docs/adr/0007-a2a-inbound-adapter)) and `cmd/rebuild` (a one-shot
+Four binaries: `cmd/api` (REST on `:8080` plus three always-on Kafka consumers), `cmd/a2a` (a read-only
+Agent2Agent agent on `:8093`, [ADR 0007](/docs/adr/0007-a2a-inbound-adapter)), `cmd/mcp` (a read-only MCP
+server on `:8090`, [ADR 0009](/docs/adr/0009-read-only-mcp-server)) and `cmd/rebuild` (a one-shot
 snapshot backfill, shipped as an optional, default-off Helm Job,
 [ADR 0006](/docs/adr/0006-rebuild-as-default-off-helm-job)). It runs on real Postgres and real Kafka only:
 there is no in-memory mode, and `DATABASE_URL`, `KAFKA_BROKERS` and the three consumer group ids are
-mandatory. There is no MCP server. REST and A2A are unauthenticated fleet-wide. Packaging is the Helm chart
-`charts/product-discovery` and one image carrying all three binaries.
+mandatory. REST, A2A and MCP are unauthenticated fleet-wide. Packaging is the Helm chart
+`charts/product-discovery` and one image carrying all four binaries.
 :::
 
 ## What the context owns

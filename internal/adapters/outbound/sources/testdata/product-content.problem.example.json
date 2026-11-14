@@ -1,0 +1,5 @@
+{
+  "type": "/problems/invalid-cursor",
+  "title": "The cursor was not issued by this list",
+  "status": 400
+}

@@ -53,9 +53,9 @@ Failure behaviour (details in the [Runbook](/docs/operations/runbook#kafka-topic
 | --- | --- |
 | Producer is down or silent | Nothing arrives; the read model keeps serving what it has. The data ages, there is no staleness marker and no alert on a silent topic. Readiness does not depend on topics or lag |
 | Topic does not exist yet | `/readyz` stays 200 (readiness asks the broker for metadata and names no topic). The kafka-go reader keeps retrying inside the consumer; this service sets no reader logger, so nothing is written to the log for it |
-| Message is not a CloudEvent | WARN, skipped and committed |
-| Unknown `type` | Ignored silently, committed |
-| Known type, undecodable or unusable `data` | Dead-lettered at once to `<topic>.dlq` |
+| Message is not a CloudEvent | WARN, skipped and committed; counted in `discovery.kafka.poison_messages` (`skipped`, `invalid-envelope`) |
+| Unknown `type` | Skipped and committed with no log line; counted in `discovery.kafka.poison_messages` (`skipped`, `unknown-type`) |
+| Known type, undecodable or unusable `data` | Dead-lettered at once to `<topic>.dlq`; counted in `discovery.kafka.poison_messages` (`dead-lettered`, `unappliable-payload`) |
 | Database error while folding | Retried with backoff (200 ms doubling to 5 s) up to 5 attempts, then dead-lettered |
 | Duplicate delivery | The CloudEvents `id` is already in `processed_events`: acknowledged without effect |
 | Out-of-order delivery | Per-source guards (listing `asOf`, content `revision`, price `version`, tree `version`) drop anything not newer; a fact for an unannounced item creates an invisible stub that `CatalogItemCreated` completes |

@@ -1,0 +1,7 @@
+{
+  "type": "/problems/invalid-limit",
+  "title": "limit must be an integer from 1 to 500",
+  "status": 400,
+  "detail": "limit=0 is below the minimum of 1",
+  "instance": "/item-prices"
+}

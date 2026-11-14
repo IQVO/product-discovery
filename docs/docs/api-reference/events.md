@@ -27,7 +27,7 @@ None. The dead-letter record is the only thing the service writes to Kafka: it c
 
 ## Consumed
 
-Dispatch is on the **full** `type` string; any other type on these topics is ignored. The CloudEvents `id` is
+Dispatch is on the **full** `type` string; any other type on these topics is skipped, committed and counted in `discovery.kafka.poison_messages` (`reason=unknown-type`). The CloudEvents `id` is
 the idempotency key (`processed_events`). The Kafka key is the item id for item, content and price events and the listing id for listing events (`apis/asyncapi.yaml`); the examples carry the same value as the CloudEvents `subject`.
 
 ### offer-availability: `retailnetwork.offer-availability.events` (group `OFFER_AVAILABILITY_CONSUMER_GROUP`)

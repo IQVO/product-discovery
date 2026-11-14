@@ -7,9 +7,9 @@ sidebar_position: 1
 
 # Configuration
 
-`product-discovery` ships **three binaries** (`cmd/api`, `cmd/a2a`, `cmd/rebuild`). Each is
+`product-discovery` ships **four binaries** (`cmd/api`, `cmd/a2a`, `cmd/mcp`, `cmd/rebuild`). Each is
 configured only through environment variables: there is no config file, no flag and no
-secret-manager integration in the repository. REST and A2A are unauthenticated fleet-wide, so there is
+secret-manager integration in the repository. REST, A2A and MCP are unauthenticated fleet-wide, so there is
 no token or key to configure.
 
 The service runs on real Postgres and real Kafka only: `cmd/api` has no in-memory mode and no
@@ -60,6 +60,23 @@ The agent reads Postgres only. It has no Kafka variable, starts no consumer and 
 
 All problems are reported together (`errors.Join`), so an operator fixes the environment in one pass.
 
+## `cmd/mcp` (read-only MCP server)
+
+The server reads Postgres only. It has no Kafka variable, starts no consumer, publishes nothing and
+has no auth variable ([ADR 0009](/docs/adr/0009-read-only-mcp-server)).
+
+| Variable | Default | Required? | Meaning | Source |
+| --- | --- | --- | --- | --- |
+| `MCP_ADDR` | `:8090` | no | Listen address (Streamable HTTP on `/mcp` and `/`, plus `/healthz`). | `cmd/mcp/config.go` |
+| `DATABASE_URL` | none | **yes** | Postgres DSN of the same database `cmd/api` writes. Missing = boot error `DATABASE_URL is required`. | `cmd/mcp/config.go` |
+| `MIGRATIONS_DATABASE_URL` | value of `DATABASE_URL` | no | Direct DSN for the boot migrations (the same idempotent migrations `cmd/api` runs). | `cmd/mcp/config.go` |
+| `PRICE_BAND_EDGES` | empty = `2500,5000,10000,25000` | no | As in `cmd/api`; keep equal to the api's so facets agree. Same validation. | `cmd/mcp/config.go` |
+| `LOG_LEVEL` | `info` | no | As in `cmd/api`. | `cmd/mcp/config.go` |
+| `OTEL_SERVICE_NAME` | `product-discovery-mcp` | no | `service.name` of spans and metrics. | `cmd/mcp/telemetry.go` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | no | Collector OTLP/gRPC endpoint. | `cmd/mcp/telemetry.go` |
+| `SERVICE_VERSION` | `dev` | no | `service.version`. | `cmd/mcp/telemetry.go` |
+| `ENVIRONMENT` | `local` | no | `deployment.environment.name`. | `internal/adapters/outbound/telemetry/telemetry.go` |
+
 ## `cmd/rebuild` (ops job: snapshot backfill)
 
 The job never runs on a user request. It needs no Kafka configuration
@@ -85,7 +102,7 @@ The rebuild does not read `PRICE_BAND_EDGES` (bands are computed at query time, 
 `GET /readyz` on `cmd/api` is 200 only when the shutdown drain gate is open **and** Postgres answers a
 ping **and** a Kafka broker answers a metadata request that names no topic (reachability only). The
 verdict is cached for 3 s and a round of checks is bounded by 2 s. `/healthz` is liveness only.
-`cmd/a2a` serves `/healthz` but has no `/readyz`. Topics are not part of readiness. Details in
+`cmd/a2a` and `cmd/mcp` serve `/healthz` but have no `/readyz`. Topics are not part of readiness. Details in
 [Runbook](/docs/operations/runbook#probes-and-readiness).
 
 ## Compiled-in settings (not configurable)
@@ -94,7 +111,7 @@ These are constants in the source; changing them needs a code change.
 
 | Setting | Value | Source |
 | --- | --- | --- |
-| HTTP `ReadHeaderTimeout` (api, a2a) | 5 s | `cmd/api/main.go`, `cmd/a2a/main.go` |
+| HTTP `ReadHeaderTimeout` (api, a2a, mcp) | 5 s | `cmd/api/main.go`, `cmd/a2a/main.go`, `cmd/mcp/main.go` |
 | HTTP graceful shutdown timeout / per-consumer drain timeout | 10 s / 10 s | `cmd/api/main.go` (`shutdownTimeout`, `workerDrainTimeout`) |
 | Telemetry flush on shutdown | 5 s | `cmd/api/telemetry.go` (`telemetryFlushTimeout`) |
 | Postgres pool size and statement timeout | 10 connections, `statement_timeout = 5s` | `internal/adapters/outbound/postgres/pool.go` |
@@ -111,7 +128,7 @@ These are constants in the source; changing them needs a code change.
 - **No Kafka producer variables.** The service publishes nothing, so there is no outbox relay, relay
   interval or max-attempts knob.
 - **No consumer mode switches.** All three consumers always run; there is no `*_MODE` variable.
-- **No auth variables.** REST and A2A are unauthenticated fleet-wide.
+- **No auth variables.** REST, A2A and MCP are unauthenticated fleet-wide.
 - **No CORS, rate-limit or feature-flag variables.**
 - **Chart values.** `charts/product-discovery` maps these variables onto the pod
   (`database.*`, `kafka.brokers`, `config.*`, `rebuild.*`); see [Runbook](/docs/operations/runbook#deploy--upgrade).

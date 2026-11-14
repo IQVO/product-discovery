@@ -10,10 +10,9 @@
 // is not a data-sync channel: facts between contexts still travel exclusively
 // as CloudEvents on Kafka (ADR 0004).
 //
-// This agent is READ-ONLY. This context has no MCP adapter (ADR 0005 lists
-// only cmd/api and cmd/rebuild), so there is no MCP charter to derive a write
-// from; both skills are backed by the read use cases a REST GET already
-// exposes (GET /products and GET /products/{catalogItemId}). This package
+// This agent is READ-ONLY. Both skills are backed by the read use cases a REST
+// GET already exposes (GET /products and GET /products/{catalogItemId}); the
+// MCP server of ADR 0009 exposes the same two reads as tools. This package
 // never writes, never calls another bounded context and contains no outbound
 // A2A client.
 //

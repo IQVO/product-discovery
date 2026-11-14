@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "listingId": "li-7001",
+      "catalogItemId": "ci-4901",
+      "nodeId": "node-br-09",
+      "ownerRef": "seller-82",
+      "state": "LIVE",
+      "availability": {
+        "availableQty": 42,
+        "basis": "PHYSICAL",
+        "asOf": "2026-11-12T08:30:00Z",
+        "feedId": "feed-311"
+      }
+    },
+    {
+      "listingId": "li-7002",
+      "catalogItemId": "ci-4902",
+      "nodeId": "node-br-11",
+      "state": "SUPPRESSED",
+      "suppressionReason": "DISCONTINUED",
+      "availability": {
+        "availableQty": 0,
+        "basis": "UNKNOWN"
+      }
+    }
+  ]
+}

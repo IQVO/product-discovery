@@ -15,7 +15,7 @@ are unauthenticated fleet-wide.
 
 - Chart: `charts/product-discovery` (released as `oci://ghcr.io/iqvo/product-discovery`).
 - Image: `ghcr.io/iqvo/product-discovery:<version>` (the chart's default tag is `v<appVersion>`). One image
-  carries all three binaries under `/app`; the entrypoint is `./api`, the other workloads name their binary
+  carries all four binaries under `/app`; the entrypoint is `./api`, the other workloads name their binary
   with `command`.
 - Workloads the chart can render:
 
@@ -23,6 +23,7 @@ are unauthenticated fleet-wide.
 | --- | --- | --- | --- | --- |
 | Deployment `product-discovery` | `cmd/api` (REST + three consumers) | on | Service 80 to container 8080 | startup, liveness `/healthz`, readiness `/readyz` |
 | Deployment `product-discovery-a2a` | `cmd/a2a` (read-only agent) | off (`a2a.enabled`) | Service 8093 | all three on `/healthz` |
+| Deployment `product-discovery-mcp` | `cmd/mcp` (read-only MCP server) | off (`mcp.enabled`) | Service 8090 | all three on `/healthz` |
 | Job `product-discovery-rebuild` | `cmd/rebuild` (snapshot backfill) | off (`rebuild.enabled`) | none | none |
 
 Source: `charts/product-discovery/values.yaml`, `templates/deployment.yaml`, `templates/a2a-deployment.yaml`,
@@ -89,6 +90,7 @@ helm upgrade --install product-discovery oci://ghcr.io/iqvo/product-discovery --
 - The three Kafka readers dial lazily inside their own goroutines, so a broker outage never blocks boot;
   it only keeps `/readyz` at 503 until a broker answers.
 - `cmd/a2a` serves `/healthz` only (no `/readyz`, no Kafka); the chart uses it for all three probes.
+- `cmd/mcp` likewise serves `/healthz` only (no `/readyz`, no Kafka) and the chart uses it for all three probes.
 
 Source: `internal/adapters/inbound/http/readiness.go`, `cmd/api/main.go`, `cmd/api/workers.go`.
 
@@ -96,7 +98,7 @@ Source: `internal/adapters/inbound/http/readiness.go`, `cmd/api/main.go`, `cmd/a
 
 One embedded migration, `0001_product_discovery_schema`, creates `products`, `category_view`,
 `listing_items`, `processed_events`, the `pg_trgm` extension and the search indexes
-(`internal/adapters/outbound/postgres/migrations/`). `cmd/api`, `cmd/a2a` and `cmd/rebuild` all call
+(`internal/adapters/outbound/postgres/migrations/`). `cmd/api`, `cmd/a2a`, `cmd/mcp` and `cmd/rebuild` all call
 `RunMigrations` at boot (golang-migrate `Up`; "no change" is success).
 
 - Set `MIGRATIONS_DATABASE_URL` to a **direct** (non-pooled, session-mode) DSN when `DATABASE_URL` goes through

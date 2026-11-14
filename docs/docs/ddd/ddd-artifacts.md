@@ -44,5 +44,5 @@ pages under
 :::info Not in this pack
 The A2A agent ([ADR 0007](/docs/adr/0007-a2a-inbound-adapter)) is a second inbound adapter over the same read
 use cases and adds no aggregate, entity or event, so it has no page of its own; it appears on the context map,
-the canvas, the class diagram and the sequence diagrams. There is no MCP server and no analytics read side.
+the canvas, the class diagram and the sequence diagrams. The MCP server is a read-only inbound adapter ([ADR 0009](/docs/adr/0009-read-only-mcp-server)); there is no analytics read side.
 :::

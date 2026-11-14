@@ -9,14 +9,14 @@ sidebar_position: 1
 # API overview
 
 `cmd/api` serves the REST routes below on `HTTP_ADDR` (default `:8080`); `cmd/a2a` serves the A2A agent on
-`A2A_ADDR` (default `:8093`). The contracts are `apis/openapi.yaml` and `apis/asyncapi.yaml`, pinned by
+`A2A_ADDR` (default `:8093`); `cmd/mcp` serves the MCP server on `MCP_ADDR` (default `:8090`). The contracts are `apis/openapi.yaml` and `apis/asyncapi.yaml`, pinned by
 [ADR 0001](/docs/adr/0001-product-discovery-bounded-context) and
 [ADR 0002](/docs/adr/0002-product-discovery-assumptions). The service is a read side: **it has no write route**
 (hence no `Idempotency-Key`) and **publishes no event**. Everything is unauthenticated, by fleet decision
 (`TestNoAuthMiddlewareReintroduced`).
 
 Source: `internal/adapters/inbound/http/server.go`, `internal/adapters/inbound/http/handlers.go`,
-`cmd/a2a/router.go`, `internal/adapters/inbound/a2a/`.
+`cmd/a2a/router.go`, `internal/adapters/inbound/a2a/`, `cmd/mcp/router.go`, `internal/adapters/inbound/mcp/`.
 
 ## Interfaces
 
@@ -24,7 +24,7 @@ Source: `internal/adapters/inbound/http/server.go`, `internal/adapters/inbound/h
 | --- | --- | --- |
 | REST | `apis/openapi.yaml` (OpenAPI 3.0.3, version 1.0.0) | The pages under *REST* in the sidebar are generated from the spec with `npm run gen-api-docs`; do not edit them by hand. The spec names one server, `http://localhost:8080`. Through Kong in the kind cluster the routes are under `/api/product-discovery` (prefix stripped) |
 | Events | `apis/asyncapi.yaml` (AsyncAPI 3.0.0, version 1.0.0) | The service **consumes** eleven event types and publishes none; see the [event catalogue](/docs/api-reference/events) and [Domain events](/docs/ddd/domain-events) |
-| MCP | none | There is no `cmd/mcp` and no MCP adapter |
+| MCP | [ADR 0009](/docs/adr/0009-read-only-mcp-server), `internal/adapters/inbound/mcp`, `cmd/mcp`, [MCP tools](/docs/mcp/tools) | Streamable HTTP, stateless, on `/mcp` and `/`, port 8090 (through Kong `/api/mcp/product-discovery`, rewritten to `/mcp`). Two read-only tools, both authority `L1`: `search_products` and `get_product`; one resource and one prompt |
 | A2A | [ADR 0007](/docs/adr/0007-a2a-inbound-adapter), `internal/adapters/inbound/a2a`, `cmd/a2a` | JSON-RPC 2.0 on `/` and `/a2a`, Agent Card at `/.well-known/agent-card.json`, port 8093 (through Kong `/api/a2a/product-discovery`, rewritten to `/`). Two read-only skills, no write skill: `search_products` and `get_product` |
 
 ## Endpoints
@@ -38,6 +38,7 @@ Source: `internal/adapters/inbound/http/server.go`, `internal/adapters/inbound/h
 | Health | `GET /readyz` | not in the spec | `200` `{"status":"ready"}` | `503 {"status":"not_ready"}` while draining; `503 dependency-unavailable` (`detail` `not ready: postgres` or `kafka`) |
 | A2A | `POST /` and `POST /a2a` on `cmd/a2a` | not in the spec | the skill answer in a reply message | problems travel in the reply envelope |
 | A2A | `GET /.well-known/agent-card.json`, `GET /healthz` on `cmd/a2a` | not in the spec | the Agent Card / `{"status":"ok"}` | none |
+| MCP | `POST /mcp` and `POST /` on `cmd/mcp`, `GET /healthz` | not in the spec | the tool, resource or prompt result | tool errors in-band (`isError`) with the REST slugs |
 
 ### `GET /products` parameters
 
@@ -105,6 +106,6 @@ and `internal-error` (500). The Agent Card carries the version (`SERVICE_VERSION
 
 - `apis/openapi.yaml` lists the `400 malformed-request` and the NUL-path `404 resource-not-found` answers on
   no operation; the router returns them (`internal/adapters/inbound/http/nul.go`).
-- `/healthz`, `/readyz` and the A2A endpoints are not in the OpenAPI document.
+- `/healthz`, `/readyz`, the A2A endpoints and the MCP endpoints are not in the OpenAPI document.
 - The OpenAPI `Problem.type` description says "slug, for example validation-failed"; the service emits the
   path form `/problems/validation-failed`.
