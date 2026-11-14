@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "catalogItemId": "ci-4901",
+      "title": "Stainless Steel Thermo Bottle 750 ml",
+      "lengthMm": 280,
+      "widthMm": 75,
+      "heightMm": 75,
+      "weightG": 390,
+      "hazmat": false,
+      "fragile": true,
+      "state": "ACTIVE",
+      "identifiers": {
+        "gtin": "06141410000120"
+      }
+    },
+    {
+      "catalogItemId": "ci-4902",
+      "title": "Lithium Power Bank 20000 mAh",
+      "lengthMm": 150,
+      "widthMm": 70,
+      "heightMm": 30,
+      "weightG": 420,
+      "hazmat": true,
+      "fragile": false,
+      "state": "DISCONTINUED"
+    }
+  ],
+  "nextCursor": "ci-4902"
+}

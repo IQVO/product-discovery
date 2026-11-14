@@ -1,0 +1,16 @@
+{
+  "version": 12,
+  "categories": [
+    {
+      "categoryId": "cat-root",
+      "name": "Store",
+      "path": "Store"
+    },
+    {
+      "categoryId": "cat-drinkware",
+      "parentId": "cat-root",
+      "name": "Drinkware",
+      "path": "Store/Drinkware"
+    }
+  ]
+}

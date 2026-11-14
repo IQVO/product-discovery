@@ -1,0 +1,5 @@
+{
+  "type": "invalid-cursor",
+  "title": "The cursor does not decode as one this list issued",
+  "status": 400
+}
