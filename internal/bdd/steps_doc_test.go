@@ -89,7 +89,7 @@ func registerDocItems(sc *godog.ScenarioContext, w *world) {
 		case outcome == "accepted" && err != nil:
 			return fmt.Errorf("the fact was refused: %w", err)
 		case outcome != "accepted" && !errors.Is(err, shared.ErrInvalidFact):
-			return fmt.Errorf("the fact was not refused as invalid: %v", err)
+			return fmt.Errorf("the fact was not refused as invalid: %w", err)
 		}
 		return nil
 	})

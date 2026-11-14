@@ -245,6 +245,10 @@ func registerDocHits(sc *godog.ScenarioContext, w *world) {
 		}
 		return nil
 	})
+	registerDocVerdicts(sc, w)
+}
+
+func registerDocVerdicts(sc *godog.ScenarioContext, w *world) {
 	sc.Step(`^the product "([^"]*)" is reported (purchasable|unpurchasable) and (in stock|out of stock)$`, func(id, buy, stock string) error {
 		p, err := w.product(id)
 		if err != nil {

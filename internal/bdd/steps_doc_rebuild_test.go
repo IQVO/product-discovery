@@ -137,7 +137,7 @@ func registerDocRebuildRun(sc *godog.ScenarioContext, w *world) {
 		case step == "" && w.rebuildErr != nil:
 			return fmt.Errorf("the rebuild failed: %w", w.rebuildErr)
 		case step != "" && (w.rebuildErr == nil || !strings.HasPrefix(w.rebuildErr.Error(), "rebuild "+step)):
-			return fmt.Errorf("rebuild error = %v, want one at the step %q", w.rebuildErr, step)
+			return fmt.Errorf("rebuild error = %w, want one at the step %q", w.rebuildErr, step)
 		}
 		return nil
 	})
