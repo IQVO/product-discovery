@@ -128,16 +128,61 @@ func registerDocFields(sc *godog.ScenarioContext, w *world) {
 		}
 		return nil
 	})
-	sc.Step(`^the answer is a client error problem$`, func() error {
-		typ, _ := w.json["type"].(string)
-		if w.status < 400 || w.status >= 500 || !strings.HasPrefix(typ, "/problems/") {
-			return fmt.Errorf("answer = %d %s", w.status, strings.TrimSpace(w.body))
+	sc.Step(`^the shopper requests "([^"]*)"$`, func(path string) error { return w.request(http.MethodGet, path, nil) })
+	sc.Step(`^the shopper searches for a text of (\d+) characters$`, func(n int) error {
+		return w.search(url.Values{"q": {strings.Repeat("k", n)}})
+	})
+	registerDocExtras(sc, w)
+}
+
+// registerDocExtras registers the small assertions the rule scenarios share.
+func registerDocExtras(sc *godog.ScenarioContext, w *world) {
+	sc.Step(`^the response field "([^"]*)" is null$`, func(path string) error {
+		got, err := w.field(path)
+		if err != nil {
+			return err
+		}
+		if got != nil {
+			return fmt.Errorf("%s = %v, want null", path, got)
 		}
 		return nil
 	})
-	sc.Step(`^the shopper requests "([^"]*)"$`, func(path string) error { return w.get(path) })
-	sc.Step(`^the shopper searches for a text of (\d+) characters$`, func(n int) error {
-		return w.search(url.Values{"q": {strings.Repeat("k", n)}})
+	sc.Step(`^the product "([^"]*)" shows (no price|the effective price (\d+))$`, func(id, what, amount string) error {
+		p, err := w.product(id)
+		if err != nil {
+			return err
+		}
+		eff, priced := p["effectivePrice"].(map[string]any)
+		switch {
+		case amount == "" && priced:
+			return fmt.Errorf("product %s shows the price %v, want none", id, eff)
+		case amount != "" && (!priced || fmt.Sprint(eff["amountMinor"]) != amount):
+			return fmt.Errorf("product %s shows %v, want the effective price %s", id, p["effectivePrice"], amount)
+		}
+		return nil
+	})
+	sc.Step(`^the first category suggestion is "([^"]*)"$`, func(id string) error {
+		sugg, _ := w.json["categorySuggestions"].([]any)
+		if len(sugg) == 0 || sugg[0].(map[string]any)["categoryId"] != id {
+			return fmt.Errorf("suggestions = %v, want %s first", sugg, id)
+		}
+		return nil
+	})
+	sc.Step(`^the hit "([^"]*)" shows the primary image "([^"]*)"$`, func(id, media string) error {
+		h, err := w.hit(id)
+		if err != nil {
+			return err
+		}
+		if m, _ := h["primaryMedia"].(map[string]any); m["mediaId"] != media {
+			return fmt.Errorf("hit %s primaryMedia = %v, want %s", id, h["primaryMedia"], media)
+		}
+		return nil
+	})
+	sc.Step(`^the answer is served as problem\+json$`, func() error {
+		if got := w.doc.header.Get("Content-Type"); got != "application/problem+json" {
+			return fmt.Errorf("Content-Type = %q", got)
+		}
+		return nil
 	})
 }
 
@@ -299,10 +344,10 @@ func registerDocETag(sc *godog.ScenarioContext, w *world) {
 	sc.Step(`^the shopper reads "([^"]*)" presenting (the noted ETag|a weak copy of the noted ETag|the wildcard ETag|an unrelated ETag)$`,
 		func(path, which string) error {
 			presented := map[string]string{
-				"the noted ETag":                 w.doc.etag,
-				"a weak copy of the noted ETag":  "W/" + w.doc.etag,
-				"the wildcard ETag":              "*",
-				"an unrelated ETag":              `"0000000000000000"`,
+				"the noted ETag":                w.doc.etag,
+				"a weak copy of the noted ETag": "W/" + w.doc.etag,
+				"the wildcard ETag":             "*",
+				"an unrelated ETag":             `"0000000000000000"`,
 			}[which]
 			return w.request(http.MethodGet, path, map[string]string{"If-None-Match": presented})
 		})

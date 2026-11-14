@@ -155,27 +155,11 @@ func registerDocContent(sc *godog.ScenarioContext, w *world) {
 	})
 	sc.Step(`^product-content publishes the draft as revision (\d+) for "([^"]*)" in category "([^"]*)"$`,
 		func(rev int64, id, category string) error { return w.publishDraft(id, rev, category) })
-	sc.Step(`^a purchasable product "([^"]*)" titled "([^"]*)" described by the draft$`, func(id, title string) error {
-		for _, step := range []func() error{
-			func() error { return w.create(id, title) },
-			func() error { return w.stock("L-"+id, id, 5, t0) },
-			func() error { return w.price(id, 3000, 3000) },
-			func() error { return w.publishDraft(id, 1, "") },
-		} {
-			if err := step(); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 	sc.Step(`^product-content announces revision (-?\d+) for "([^"]*)" in category "([^"]*)"$`, func(rev int64, id, category string) error {
 		return w.try(w.content(id, rev, category))
 	})
 	sc.Step(`^product-content retires "([^"]*)" at revision (\d+)$`, func(id string, rev int64) error {
 		return w.consumer.ApplyProductContentRetired(bg(), w.meta(), usecases.ProductContentRetired{CatalogItemID: id, Revision: rev})
-	})
-	sc.Step(`^product-content retires "([^"]*)" without a revision$`, func(id string) error {
-		return w.consumer.ApplyProductContentRetired(bg(), w.meta(), usecases.ProductContentRetired{CatalogItemID: id})
 	})
 }
 
@@ -217,6 +201,24 @@ func registerDocTrees(sc *godog.ScenarioContext, w *world) {
 	sc.Step(`^the category tree is announced at version (\d+) with:$`, func(version int64, t *godog.Table) error {
 		return w.try(w.announceTree(version, t))
 	})
+	sc.Step(`^the category tree is announced at version (\d+) with a (duplicate category id|parent that is not in the tree|parent cycle|category without a name)$`,
+		func(version int64, defect string) error {
+			cats := map[string][]categoryview.Category{
+				"duplicate category id": {
+					{ID: "home", Name: "Home", Path: "Home"}, {ID: "home", Name: "Again", Path: "Again"},
+				},
+				"parent that is not in the tree": {
+					{ID: "home", Name: "Home", Path: "Home"}, {ID: "kettles", ParentID: "attic", Name: "Kettles", Path: "Home/Kettles"},
+				},
+				"parent cycle": {
+					{ID: "a", ParentID: "b", Name: "A", Path: "A"}, {ID: "b", ParentID: "a", Name: "B", Path: "B"},
+				},
+				"category without a name": {
+					{ID: "home", Name: "Home", Path: "Home"}, {ID: "kettles", ParentID: "home", Path: "Home/Kettles"},
+				},
+			}[defect]
+			return w.try(w.consumer.ApplyCategoryTreePublished(bg(), w.meta(), usecases.CategoryTreePublished{Version: version, Categories: cats}))
+		})
 	sc.Step(`^the price bands are cut at (\d+) and (\d+)$`, func(a, b int64) error {
 		w.srv.Close()
 		w.deps.Bands = []int64{a, b}
