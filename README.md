@@ -299,10 +299,10 @@ publish) run only on pushes to `main`, after every other job is green.
 
 ## Architecture Decision Records
 
-[`docs/adr/`](docs/adr/) — [index](docs/adr/index.md); 7 ADRs (0001 bounded
+[`docs/adr/`](docs/adr/) — [index](docs/adr/index.md); 8 ADRs (0001 bounded
 context, 0002 assumptions, 0003 consumed contracts and rebuild, 0004
 CloudEvents envelope and type catalogue, 0005 fleet observability standard,
-0006 rebuild as default-off Helm job, 0007 A2A inbound adapter).
+0006 rebuild as default-off Helm job, 0007 A2A inbound adapter, 0008 fleet REST API guideline).
 
 ## License
 
