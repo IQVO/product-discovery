@@ -45,6 +45,9 @@ type world struct {
 	snap       *snapshot
 	rebuild    usecases.Report
 	rebuildErr error
+
+	// doc is the state of the documentation-derived steps (steps_doc_test.go).
+	doc docState
 }
 
 func newWorld() *world {
@@ -80,4 +83,5 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	registerResults(sc, w)
 	registerCategories(sc, w)
 	registerWave2(sc, w)
+	registerDoc(sc, w)
 }
