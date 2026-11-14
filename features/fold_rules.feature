@@ -42,6 +42,21 @@ Feature: The rules every consumed fact is folded under
       | 64     | accepted           |
       | 65     | refused as invalid |
 
+  Scenario Outline: An item id starts with a letter or a digit and uses only letters, digits and . _ : -
+    When the item master announces the item "<id>" titled "Id Rule Kettle"
+    Then the fact is <outcome>
+
+    Examples:
+      | id            | outcome            |
+      | SKU-100.a_b:c | accepted           |
+      | 7             | accepted           |
+      | .hidden       | refused as invalid |
+      | -minus        | refused as invalid |
+      | _under        | refused as invalid |
+      | has space     | refused as invalid |
+      | café          | refused as invalid |
+      |               | refused as invalid |
+
   Scenario: A discontinue that arrives before the create cannot be revived by the late create
     Given the item master discontinues "I-D1"
     And a purchasable product "I-D1" titled "Late Kettle"
