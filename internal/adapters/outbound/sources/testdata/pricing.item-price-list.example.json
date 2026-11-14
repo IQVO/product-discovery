@@ -1,0 +1,43 @@
+{
+  "items": [
+    {
+      "catalogItemId": "ci-4901",
+      "state": "ACTIVE",
+      "listPrice": {
+        "amountMinor": 14990,
+        "currency": "BRL"
+      },
+      "effectivePrice": {
+        "amountMinor": 12990,
+        "currency": "BRL"
+      },
+      "sales": [
+        {
+          "saleId": "sale-55",
+          "price": {
+            "amountMinor": 11990,
+            "currency": "BRL"
+          },
+          "from": "2026-11-09T00:00:00Z",
+          "to": "2026-11-20T23:59:59Z"
+        }
+      ],
+      "version": 3
+    },
+    {
+      "catalogItemId": "ci-4902",
+      "state": "WITHDRAWN",
+      "listPrice": {
+        "amountMinor": 8990,
+        "currency": "BRL"
+      },
+      "effectivePrice": {
+        "amountMinor": 8990,
+        "currency": "BRL"
+      },
+      "sales": [],
+      "version": 7
+    }
+  ],
+  "nextCursor": "ci-4902"
+}

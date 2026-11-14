@@ -1,0 +1,50 @@
+{
+  "items": [
+    {
+      "catalogItemId": "ci-4901",
+      "state": "PUBLISHED",
+      "revision": 4,
+      "publishedRevision": 3,
+      "publishedAt": "2026-11-10T14:00:00Z",
+      "createdAt": "2026-10-01T09:00:00Z",
+      "updatedAt": "2026-11-10T14:00:00Z",
+      "description": "Vacuum-insulated stainless steel bottle that keeps drinks cold for 24 hours.",
+      "bullets": [
+        "750 ml capacity",
+        "Dishwasher-safe body"
+      ],
+      "attributes": [
+        {
+          "name": "capacity",
+          "value": "750 ml",
+          "unit": "ml"
+        },
+        {
+          "name": "color",
+          "value": "brushed steel"
+        }
+      ],
+      "media": [
+        {
+          "mediaId": "med-01",
+          "url": "https://cdn.example.invalid/bottle-primary.jpg",
+          "altText": "Bottle standing on a kitchen counter",
+          "role": "PRIMARY"
+        }
+      ],
+      "primaryCategoryId": "cat-drinkware"
+    },
+    {
+      "catalogItemId": "ci-4903",
+      "state": "DRAFT",
+      "revision": 1,
+      "publishedRevision": 0,
+      "createdAt": "2026-11-13T10:15:00Z",
+      "updatedAt": "2026-11-13T10:15:00Z",
+      "description": "",
+      "bullets": [],
+      "attributes": [],
+      "media": []
+    }
+  ]
+}
