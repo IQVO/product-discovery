@@ -14,7 +14,7 @@ skills) read them back out. It publishes nothing.
 
 ## Containers
 
-Source: `cmd/api/main.go`, `cmd/api/workers.go`, `cmd/a2a/main.go`, `cmd/rebuild/main.go`,
+Source: `cmd/api/main.go`, `cmd/api/workers.go`, `cmd/a2a/main.go`, `cmd/mcp/main.go`, `cmd/rebuild/main.go`,
 `charts/product-discovery/templates/`.
 
 ```mermaid
@@ -28,6 +28,7 @@ flowchart LR
   subgraph PD["product-discovery"]
     API["cmd/api<br/>REST :8080 + 3 consumers"]
     A2A["cmd/a2a<br/>A2A agent :8093"]
+    MCP["cmd/mcp<br/>MCP server :8090"]
     RB["cmd/rebuild<br/>one-shot Job"]
   end
   PG[("PostgreSQL<br/>products, category_view,<br/>listing_items, processed_events")]
@@ -42,14 +43,17 @@ flowchart LR
   API -- "poison messages" --> DLQ
   API -- "fold in one transaction" --> PG
   A2A -- "read only" --> PG
+  MCP -- "read only" --> PG
   RB -- "seed via the same fold rules" --> PG
   OA -. "GET /catalog, /listings" .-> RB
   PC -. "GET /product-contents, /categories" .-> RB
   PR -. "GET /item-prices" .-> RB
   BFF -- "GET /products, /categories" --> API
   BFF -- "JSON-RPC skills" --> A2A
+  BFF -- "MCP tools" --> MCP
   API -. "traces, metrics" .-> OTEL
   A2A -. "traces, metrics" .-> OTEL
+  MCP -. "traces, metrics" .-> OTEL
 ```
 
 ### Binaries
@@ -58,15 +62,16 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | `cmd/api` | REST adapter for `GET /products`, `GET /products/{catalogItemId}`, `GET /categories`, `GET /healthz`, `GET /readyz`; three Kafka consumers (offer-availability, product-content, pricing), always on; embedded migrations at boot. Exits non-zero when a consumer stops so the orchestrator restarts it | `:8080` (`HTTP_ADDR`) | startup and liveness `/healthz`, readiness `/readyz` | Postgres, Kafka |
 | `cmd/a2a` | Read-only Agent2Agent agent: JSON-RPC 2.0 on `/` and `/a2a`, Agent Card at `/.well-known/agent-card.json`, `/healthz`. Two skills over the same read use cases as REST. No consumer, no Kafka, no write | `:8093` (`A2A_ADDR`) | `/healthz` for all three | Postgres |
+| `cmd/mcp` | Read-only MCP server: Streamable HTTP, stateless, on `/mcp` and `/`, `/healthz`. Two tools (`search_products`, `get_product`, authority L1) over the same read use cases as REST, one resource, one prompt. No consumer, no Kafka, no write, no auth | `:8090` (`MCP_ADDR`) | `/healthz` for all three | Postgres |
 | `cmd/rebuild` | Ops job: pages the producers' snapshot reads and folds them into the projections through the same fold rules, then exits. Never runs on a user request | none | none | Postgres, the three producers' HTTP APIs |
 
-There is no `cmd/mcp`: the context has no MCP server. One image carries all three binaries under `/app` with
+One image carries all four binaries under `/app` with
 entrypoint `./api` (`Dockerfile`).
 
 ## Layers
 
 ```text
-cmd/api, cmd/a2a, cmd/rebuild        composition roots: env, wiring, signals, shutdown order
+cmd/api, cmd/a2a, cmd/mcp, cmd/rebuild composition roots: env, wiring, signals, shutdown order
 internal/
   domain/                            pure: no I/O, no clock, imports only other domain packages
     productview/                     ProductView value + fold rules (Apply...), PurchasableRule
@@ -138,7 +143,7 @@ same fold rules, so the per-source guards make the overlap with live events safe
 
 | Store | What | Owner |
 | --- | --- | --- |
-| PostgreSQL (one database, one migration `0001_product_discovery_schema`, embedded in the binary) | `products` (one row per item, with `listings`, `bullets`, `attributes`, `media` as JSONB and a weighted `tsvector` `doc`), `category_view` (singleton row: version plus the tree as JSONB), `listing_items` (listing to item lookup), `processed_events` (inbox), the `pg_trgm` extension and the search indexes | written by `cmd/api` and `cmd/rebuild`, read by `cmd/api` and `cmd/a2a` |
+| PostgreSQL (one database, one migration `0001_product_discovery_schema`, embedded in the binary) | `products` (one row per item, with `listings`, `bullets`, `attributes`, `media` as JSONB and a weighted `tsvector` `doc`), `category_view` (singleton row: version plus the tree as JSONB), `listing_items` (listing to item lookup), `processed_events` (inbox), the `pg_trgm` extension and the search indexes | written by `cmd/api` and `cmd/rebuild`, read by `cmd/api`, `cmd/a2a` and `cmd/mcp` |
 | Kafka | three consumed topics and their `.dlq` topics; nothing else | the producers own the topics; the service writes only dead letters |
 
 There is no cache, no outbox table and no second search engine. Postgres is accessed through a pool of at

@@ -25,11 +25,11 @@ Page map (paths relative to `https://iqvo.github.io/product-discovery/docs/`; so
 
 | Area | Pages |
 |---|---|
-| Overview | [introduction](https://iqvo.github.io/product-discovery/docs/overview/introduction) (what the context owns and does not own), [architecture](https://iqvo.github.io/product-discovery/docs/overview/architecture) (layers, the three binaries, data stores), [quickstart](https://iqvo.github.io/product-discovery/docs/overview/quickstart) (prerequisites, `make` targets, local Postgres and Kafka, first calls) |
+| Overview | [introduction](https://iqvo.github.io/product-discovery/docs/overview/introduction) (what the context owns and does not own), [architecture](https://iqvo.github.io/product-discovery/docs/overview/architecture) (layers, the four binaries, data stores), [quickstart](https://iqvo.github.io/product-discovery/docs/overview/quickstart) (prerequisites, `make` targets, local Postgres and Kafka, first calls) |
 | Operations | [configuration](https://iqvo.github.io/product-discovery/docs/operations/configuration) (every variable per binary), [runbook](https://iqvo.github.io/product-discovery/docs/operations/runbook) (deploy, probes, migrations, topics and dead letters, rebuild), [observability](https://iqvo.github.io/product-discovery/docs/operations/observability) (metrics, spans, logs, dashboard and alerts), [troubleshooting](https://iqvo.github.io/product-discovery/docs/operations/troubleshooting) (symptom, cause, check, fix), [before the first release](https://iqvo.github.io/product-discovery/docs/operations/before-first-release) |
 | Development | [testing](https://iqvo.github.io/product-discovery/docs/development/testing) (the pyramid, `make` targets, CI jobs) |
 | Domain-driven design | [use cases](https://iqvo.github.io/product-discovery/docs/ddd/use-cases), [subdomain classification](https://iqvo.github.io/product-discovery/docs/ddd/subdomain-classification), [ubiquitous language](https://iqvo.github.io/product-discovery/docs/ddd/ubiquitous-language), [DDD artifacts](https://iqvo.github.io/product-discovery/docs/ddd/ddd-artifacts) with [core domain chart](https://iqvo.github.io/product-discovery/docs/ddd/core-domain-chart), [bounded context canvas](https://iqvo.github.io/product-discovery/docs/ddd/bounded-context-canvas), [context map](https://iqvo.github.io/product-discovery/docs/ddd/context-map), [aggregate design canvas](https://iqvo.github.io/product-discovery/docs/ddd/aggregate-design-canvas), [domain message flow](https://iqvo.github.io/product-discovery/docs/ddd/domain-message-flow), [EventStorming](https://iqvo.github.io/product-discovery/docs/ddd/eventstorming), [class diagram](https://iqvo.github.io/product-discovery/docs/ddd/class-diagram), [entity relationship](https://iqvo.github.io/product-discovery/docs/ddd/entity-relationship), [sequence diagrams](https://iqvo.github.io/product-discovery/docs/ddd/sequence-diagrams), [domain events](https://iqvo.github.io/product-discovery/docs/ddd/domain-events) |
-| API reference | [API overview](https://iqvo.github.io/product-discovery/docs/api-reference) (REST, events, A2A), the REST reference generated from [`apis/openapi.yaml`](apis/openapi.yaml), [event catalogue](https://iqvo.github.io/product-discovery/docs/api-reference/events) (from [`apis/asyncapi.yaml`](apis/asyncapi.yaml)) |
+| API reference | [API overview](https://iqvo.github.io/product-discovery/docs/api-reference) (REST, events, A2A, MCP), the [MCP tools](https://iqvo.github.io/product-discovery/docs/mcp/tools), the REST reference generated from [`apis/openapi.yaml`](apis/openapi.yaml), [event catalogue](https://iqvo.github.io/product-discovery/docs/api-reference/events) (from [`apis/asyncapi.yaml`](apis/asyncapi.yaml)) |
 | Ecosystem | [integration](https://iqvo.github.io/product-discovery/docs/ecosystem/integration) (every upstream and downstream edge) |
 | Decisions | [ADR index](https://iqvo.github.io/product-discovery/docs/adr) (source: [`docs/adr/`](docs/adr/)); the aggregator's [storefront ADR index](https://iqvo.github.io/warehouse-docs/storefront/adr/) |
 | In this repo | [`docs/network-ohs-allowlist.yaml`](docs/network-ohs-allowlist.yaml), [`docs/docs/operations/runbook.md`](docs/docs/operations/runbook.md), [`docs/docs/operations/before-first-release.md`](docs/docs/operations/before-first-release.md) |
@@ -47,6 +47,8 @@ cmd/api/                    composition root: the REST service and the three Kaf
 cmd/rebuild/                one-shot ops job: seeds the projections from the producers'
                             paged snapshot reads (ADR 0003, never on a user request)
 cmd/a2a/                    read-only A2A agent over the same read use cases (ADR 0007)
+cmd/mcp/                    read-only MCP server over the same read use cases (ADR 0009,
+                            Streamable HTTP on /mcp)
 internal/
   domain/                   pure fold logic: productview (fold rules), categoryview,
                             search, shared
@@ -55,7 +57,7 @@ internal/
     readmodel/              the projection fold logic's application side
     usecases/               one struct per use case
   adapters/
-    inbound/                http (chi), kafka (the three consumers), a2a, requestlog
+    inbound/                http (chi), kafka (the three consumers), a2a, mcp, requestlog
     outbound/               postgres, kafka (consumer plumbing), telemetry, sources
                             (the producer snapshot clients used by cmd/rebuild:
                             offer-availability, and the storefront clients for
@@ -72,9 +74,10 @@ The layering is enforced as an executable test, not a convention:
 `internal/architecture/architecture_test.go` (`TestHexagonalArchitecture`,
 arch-go) fails the build if the domain ever imports an outer layer or an
 adapter reaches sideways into a sibling; the same package adds fitness tests
-for the event catalogue vs `apis/asyncapi.yaml`, the A2A adapter's read-only
-rule, Kafka writer acks/topics/DLQ shutdown, the outbox relay cap, and
-no-Go-files-at-root.
+for the event catalogue vs `apis/asyncapi.yaml`, the A2A and MCP adapters'
+read-only rules, the MCP authority declaration and optional-input sensors
+(`mcp_authority_fitness_test.go`, `mcp_optional_inputs_test.go`), Kafka writer
+acks/topics/DLQ shutdown, the outbox relay cap, and no-Go-files-at-root.
 
 ## Domain events
 
@@ -164,12 +167,18 @@ afterwards and drop every replayed event that is not newer.
 (`OTEL_SERVICE_NAME` defaults to `product-discovery-a2a`). It has no Kafka and
 no write.
 
+`cmd/mcp` reads `DATABASE_URL` (**required**), `MCP_ADDR` (default `:8090`),
+`MIGRATIONS_DATABASE_URL` (default `DATABASE_URL`), `PRICE_BAND_EDGES` (keep it
+equal to the api's), `LOG_LEVEL` and the optional telemetry variables
+(`OTEL_SERVICE_NAME` defaults to `product-discovery-mcp`). It has no Kafka and
+no write.
+
 ## Observability
 
 Logs, metrics and traces follow the fleet standard ([ADR
 0005](docs/adr/0005-fleet-observability-standard.md)): JSON logs on stdout
-carry `trace_id`/`span_id` and a `request_id`; `cmd/api`, `cmd/rebuild` and
-`cmd/a2a` export OTLP/gRPC to the Collector (`OTEL_EXPORTER_OTLP_ENDPOINT`,
+carry `trace_id`/`span_id` and a `request_id`; `cmd/api`, `cmd/rebuild`,
+`cmd/a2a` and `cmd/mcp` export OTLP/gRPC to the Collector (`OTEL_EXPORTER_OTLP_ENDPOINT`,
 `OTEL_SERVICE_NAME`, `SERVICE_VERSION`, `ENVIRONMENT`; export never blocks, so
 no Collector costs telemetry, nothing else); the consumers continue the trace
 carried in the `traceparent` header of each consumed event.
@@ -255,6 +264,23 @@ Kubernetes: `a2a.enabled=true` renders `<release>-a2a` (Deployment, Service,
 optional HTTPRoute `a2a.route.*` at `/api/a2a/product-discovery`, rewritten to
 `/`). It is **off by default**.
 
+### Running the MCP server in Kubernetes
+
+`cmd/mcp` ([ADR 0009](docs/adr/0009-read-only-mcp-server.md)) is the optional
+fourth binary: a read-only MCP server (`search_products`, `get_product`) over the
+same read use cases as the REST GETs, Postgres only, Streamable HTTP on `/mcp`
+and `/` (`MCP_ADDR`, default `:8090`), `GET /healthz` for the probes,
+unauthenticated like REST (access control is the in-cluster ClusterIP boundary).
+Every tool declares authority `L1` (`_meta` `com.warehouse/authority`, Agentic
+Standard v2), the transport is stateless (2026-07-28 `server/discover` plus
+legacy `initialize`), and the surface carries one resource
+(`warehouse://product-discovery/products/{catalogItemId}`) and one prompt
+(`find_products`). The binary ships in the same image as `/app/mcp`.
+Kubernetes: `mcp.enabled=true` renders `<release>-mcp` (Deployment, Service,
+optional HTTPRoute `mcp.route.*` at `/api/mcp/product-discovery`, rewritten to
+`/mcp`). It is **off by default**. The tools are listed in
+[`docs/docs/mcp/tools.md`](docs/docs/mcp/tools.md).
+
 ## Local development / quality gate
 
 Every CI sensor is a `make` target; `make help` lists them all:
@@ -299,10 +325,11 @@ publish) run only on pushes to `main`, after every other job is green.
 
 ## Architecture Decision Records
 
-[`docs/adr/`](docs/adr/) — [index](docs/adr/index.md); 8 ADRs (0001 bounded
+[`docs/adr/`](docs/adr/) — [index](docs/adr/index.md); 9 ADRs (0001 bounded
 context, 0002 assumptions, 0003 consumed contracts and rebuild, 0004
 CloudEvents envelope and type catalogue, 0005 fleet observability standard,
-0006 rebuild as default-off Helm job, 0007 A2A inbound adapter, 0008 fleet REST API guideline).
+0006 rebuild as default-off Helm job, 0007 A2A inbound adapter, 0008 fleet REST API guideline,
+0009 read-only MCP server).
 
 ## License
 

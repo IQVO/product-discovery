@@ -4,8 +4,9 @@
 # ever rendered, the consumer group ids are stable chart values, the pod is
 # hardened and has room to shut down, and the env BOTH binaries read is the env
 # the chart renders (cmd/api -> the Deployment, cmd/rebuild -> the default-off
-# Job), and the default-off, READ-ONLY A2A agent (cmd/a2a, ADR 0007) renders
-# the env cmd/a2a reads and nothing of the Kafka/consumer side.
+# Job), the default-off, READ-ONLY A2A agent (cmd/a2a, ADR 0007) renders the env
+# cmd/a2a reads and nothing of the Kafka/consumer side, and so does the
+# default-off, READ-ONLY MCP server (cmd/mcp, ADR 0009) for the env cmd/mcp reads.
 # Run: bash charts/product-discovery/tests/render_test.sh   (needs helm)
 set -euo pipefail
 
@@ -160,9 +161,10 @@ if grep -qiE 'in-memory|silently runs|permissive' <<<"$render_all"$'\n'"$(cat "$
   fail "the render or NOTES.txt mentions an in-memory / permissive mode"
 fi
 
-# Only the api component is always on: one Deployment, one Service, no MCP or
-# frontend; the rebuild Job renders only when rebuild.enabled.
-for stray in mcp frontend projector reports analytics; do
+# Only the api component is always on: one Deployment, one Service, no frontend
+# (the a2a and mcp components render only when enabled, asserted below); the
+# rebuild Job renders only when rebuild.enabled.
+for stray in frontend projector reports analytics; do
   if grep -qE "app.kubernetes.io/component: .*$stray" <<<"$render_all"; then fail "the chart must not render a $stray component"; fi
 done
 [[ "$(grep -c '^kind: Deployment' <<<"$render_all")" == 1 ]] || fail "exactly one Deployment (the api) must render"
@@ -246,6 +248,76 @@ grep -q 'name: warehouse-gateway' <<<"$a2a_route" || fail "the a2a route lost it
 grep -A1 'backendRefs:' <<<"$a2a_route" | grep -q -- '-a2a$' || fail "the a2a route must route to the a2a Service only"
 grep -q 'port: 8093' <<<"$a2a_route" || fail "the a2a route must target port 8093"
 
+# --- the MCP server (ADR 0009): read-only, same Postgres, port 8090 ----------------------
+# Off by default: no mcp resource renders unless asked for.
+if grep -q -- '-mcp' <<<"$default_render"; then fail "an mcp resource rendered with default values"; fi
+if grep -q -- '-mcp' <<<"$render_all"; then fail "an mcp resource rendered without mcp.enabled (the everything set leaves it off)"; fi
+mcp_args=("${base[@]}" --set mcp.enabled=true)
+mcp_dep="$(helm template "$release" "$chart_dir" "${mcp_args[@]}" --show-only templates/mcp-deployment.yaml)"
+grep -q '^kind: Deployment$' <<<"$mcp_dep" || fail "mcp.enabled=true must render the mcp Deployment"
+grep -q 'command: \["/app/mcp"\]' <<<"$mcp_dep" || fail "the mcp Deployment must run /app/mcp"
+grep -q 'app.kubernetes.io/component: mcp$' <<<"$mcp_dep" || fail "the mcp Deployment must pin component=mcp"
+grep -A4 'name: DATABASE_URL$' <<<"$mcp_dep" | grep -q 'secretKeyRef:' || fail "the mcp DATABASE_URL must come from a Secret"
+grep -A6 'name: MIGRATIONS_DATABASE_URL$' <<<"$mcp_dep" | grep -q 'optional: true' || fail "the mcp MIGRATIONS_DATABASE_URL must be optional: true"
+[[ "$(env_value "$mcp_dep" MCP_ADDR || true)" == ":8090" ]] || fail "the mcp server must listen on :8090 (8080 is the api, 8093 the a2a agent)"
+grep -q 'containerPort: 8090' <<<"$mcp_dep" || fail "the mcp container port must be 8090"
+# The server is READ-ONLY: it consumes and publishes nothing, so none of the
+# Kafka / consumer / publisher side of the api may reach it, no auth variable
+# exists, and it does not mount the api ConfigMap (it would inherit HTTP_ADDR).
+for absent in KAFKA_BROKERS EVENT_PUBLISHER OFFER_AVAILABILITY_CONSUMER_GROUP PRODUCT_CONTENT_CONSUMER_GROUP PRICING_CONSUMER_GROUP HTTP_ADDR A2A_ADDR A2A_AGENT_URL; do
+  if grep -q "name: $absent\$" <<<"$mcp_dep"; then fail "the read-only mcp server must not render $absent"; fi
+done
+if grep -qiE 'name: [A-Z_]*(API_KEY|TOKEN|BEARER|AUTH)' <<<"$mcp_dep"; then fail "the mcp server has no auth variable (auth is reverted fleet-wide)"; fi
+if grep -q 'configMapRef:' <<<"$mcp_dep"; then fail "the mcp Deployment must not mount the api ConfigMap"; fi
+# The price facet must use the api's edges, or the two surfaces disagree.
+mcp_tuned="$(helm template "$release" "$chart_dir" "${mcp_args[@]}" --set 'config.priceBandEdges=1000\,2000' --show-only templates/mcp-deployment.yaml)"
+[[ "$(env_value "$mcp_tuned" PRICE_BAND_EDGES || true)" == "1000,2000" ]] || fail "the mcp server must read config.priceBandEdges like the api"
+# Chart vs binary: every mandatory variable cmd/mcp reports as "<VAR> is
+# required" is rendered, and so is every variable it reads at all when every
+# optional value is set. A new variable in cmd/mcp fails this until the chart
+# carries it.
+# shellcheck disable=SC2207
+mcp_required=($(grep -hoE 'errors.New\("[A-Z][A-Z0-9_]+ is required' "$repo_dir"/cmd/mcp/*.go --exclude='*_test.go' | sed -E 's/errors.New\("//; s/ is required//' | sort -u))
+(( ${#mcp_required[@]} == 1 )) || fail "found ${#mcp_required[@]} mandatory env names in cmd/mcp, want 1 (DATABASE_URL); the scan is looking in the wrong place"
+for var in "${mcp_required[@]}"; do
+  grep -q "name: $var\$" <<<"$mcp_dep" || fail "the mcp Deployment does not render $var, which cmd/mcp requires"
+done
+# shellcheck disable=SC2207
+mcp_vars=($(grep -ohE '(Getenv|getenv|env)\("[A-Z][A-Z0-9_]*"' "$repo_dir"/cmd/mcp/*.go --exclude='*_test.go' | sed -E 's/.*\("//; s/"$//' | sort -u))
+(( ${#mcp_vars[@]} >= 8 )) || fail "found only ${#mcp_vars[@]} env names in cmd/mcp; the scan is looking in the wrong place"
+mcp_full="$(helm template "$release" "$chart_dir" "${mcp_args[@]}" "${everything[@]}" --show-only templates/mcp-deployment.yaml)"
+for var in "${mcp_vars[@]}"; do
+  grep -q "name: $var\$" <<<"$mcp_full" || fail "the mcp Deployment does not render $var, which cmd/mcp reads"
+done
+# Pod hardening, probes, image: the same posture as the api.
+for want in 'runAsNonRoot: true' 'readOnlyRootFilesystem: true' 'allowPrivilegeEscalation: false' 'type: RuntimeDefault' 'path: /healthz'; do
+  grep -q -- "$want" <<<"$mcp_dep" || fail "the mcp Deployment lacks '$want'"
+done
+grep -A2 'drop:' <<<"$mcp_dep" | grep -q 'ALL' || fail "the mcp container must drop ALL capabilities"
+grep -q 'image: "warehouse/product-discovery:v0.1.0"' <<<"$mcp_dep" || fail "the mcp image must be the api image (every cmd/* binary is in it)"
+# Service: component=mcp, port 8090, never the api's or the a2a agent's pods.
+mcp_svc="$(helm template "$release" "$chart_dir" "${mcp_args[@]}" --show-only templates/mcp-service.yaml)"
+grep -A3 'selector:' <<<"$mcp_svc" | grep -q 'app.kubernetes.io/name: product-discovery' || fail "the mcp Service selector lost the base labels"
+grep -A4 'selector:' <<<"$mcp_svc" | grep -q 'app.kubernetes.io/component: mcp$' || fail "the mcp Service must select component=mcp"
+grep -q 'port: 8090' <<<"$mcp_svc" || fail "the mcp Service must serve port 8090"
+# Route: off unless asked, never without the server, prefix rewritten to /mcp.
+if helm template "$release" "$chart_dir" "${mcp_args[@]}" | grep -q 'kind: HTTPRoute'; then fail "the mcp route must be OFF by default (mcp.route.enabled)"; fi
+if helm template "$release" "$chart_dir" "${base[@]}" --set mcp.route.enabled=true | grep -q -- '-mcp'; then fail "mcp.route.enabled without mcp.enabled must render nothing"; fi
+mcp_route="$(helm template "$release" "$chart_dir" "${mcp_args[@]}" --set mcp.route.enabled=true \
+  --set mcp.route.parentRefs[0].name=warehouse-gateway --set mcp.route.parentRefs[0].namespace=kong --show-only templates/mcp-route.yaml)"
+grep -q 'kind: HTTPRoute' <<<"$mcp_route" || fail "mcp.route.enabled=true must render the mcp HTTPRoute"
+grep -q 'value: /api/mcp/product-discovery$' <<<"$mcp_route" || fail "the mcp route must match /api/mcp/product-discovery"
+grep -q 'replacePrefixMatch: /mcp$' <<<"$mcp_route" || fail "the mcp route must rewrite its prefix to /mcp (the SDK's canonical endpoint)"
+grep -q 'name: warehouse-gateway' <<<"$mcp_route" || fail "the mcp route lost its parentRefs"
+grep -A1 'backendRefs:' <<<"$mcp_route" | grep -q -- '-mcp$' || fail "the mcp route must route to the mcp Service only"
+grep -q 'port: 8090' <<<"$mcp_route" || fail "the mcp route must target port 8090"
+# The a2a agent and the mcp server are independent components: either alone
+# renders only its own pods, and both together render both.
+only_a2a="$(helm template "$release" "$chart_dir" "${a2a_args[@]}")"
+if grep -q -- '-mcp' <<<"$only_a2a"; then fail "a2a.enabled alone must not render the mcp server"; fi
+only_mcp="$(helm template "$release" "$chart_dir" "${mcp_args[@]}")"
+if grep -q -- '-a2a' <<<"$only_mcp"; then fail "mcp.enabled alone must not render the a2a agent"; fi
+
 # --- refusals: the mandatory values name themselves ---------------------------------
 expect_refusal() { # expect_refusal <why> <needle> <helm args...>
   local why="$1" needle="$2" err; shift 2
@@ -296,6 +368,12 @@ expect_refusal "an a2a route without a path" "a2a.route.path" "${base[@]}" --set
 expect_refusal "a relative a2a agent URL" "a2a.agentUrl" "${base[@]}" --set a2a.enabled=true --set a2a.agentUrl=/api/a2a
 helm template "$release" "$chart_dir" "${base[@]}" --set a2a.httpAddr=:9090 >/dev/null \
   || fail "a2a.httpAddr is only checked while a2a.enabled (the agent is off by default)"
+# The mcp server refuses a listen address off its container port and a route
+# with no path, naming the value.
+expect_refusal "an mcp address off the container port" "mcp.httpAddr" "${base[@]}" --set mcp.enabled=true --set mcp.httpAddr=:9090
+expect_refusal "an mcp route without a path" "mcp.route.path" "${base[@]}" --set mcp.enabled=true --set mcp.route.enabled=true --set mcp.route.path=
+helm template "$release" "$chart_dir" "${base[@]}" --set mcp.httpAddr=:9090 >/dev/null \
+  || fail "mcp.httpAddr is only checked while mcp.enabled (the server is off by default)"
 # The rebuild Job refuses a missing source URL, naming the value.
 for src in offerAvailabilityUrl:OFFER_AVAILABILITY_URL pricingUrl:PRICING_URL productContentUrl:PRODUCT_CONTENT_URL; do
   args=("${base[@]}" --set rebuild.enabled=true
@@ -307,13 +385,14 @@ for src in offerAvailabilityUrl:OFFER_AVAILABILITY_URL pricingUrl:PRICING_URL pr
 done
 
 # The full render (ct lint's all-components values file) carries every optional
-# template together, still exactly one Deployment and one Service.
+# template together: one Deployment and one Service per component (api, a2a, mcp).
 together="$(helm template "$release" "$chart_dir" -f "$chart_dir/ci/all-components-values.yaml")"
 grep -q 'app.kubernetes.io/component: api$' <<<"$together" || fail "the full render lacks the api component"
 grep -q 'app.kubernetes.io/component: a2a$' <<<"$together" || fail "the full render lacks the a2a component"
-[[ "$(grep -c '^kind: Deployment' <<<"$together")" == 2 ]] || fail "the full render must carry exactly the api and a2a Deployments"
-[[ "$(grep -c '^kind: Service$' <<<"$together")" == 2 ]] || fail "the full render must carry exactly the api and a2a Services"
-[[ "$(grep -c '^kind: HTTPRoute' <<<"$together")" == 2 ]] || fail "the full render must carry the api HTTPRoute and the a2a one"
+grep -q 'app.kubernetes.io/component: mcp$' <<<"$together" || fail "the full render lacks the mcp component"
+[[ "$(grep -c '^kind: Deployment' <<<"$together")" == 3 ]] || fail "the full render must carry exactly the api, a2a and mcp Deployments"
+[[ "$(grep -c '^kind: Service$' <<<"$together")" == 3 ]] || fail "the full render must carry exactly the api, a2a and mcp Services"
+[[ "$(grep -c '^kind: HTTPRoute' <<<"$together")" == 3 ]] || fail "the full render must carry the api HTTPRoute, the a2a one and the mcp one"
 [[ "$(grep -c '^kind: Job$' <<<"$together")" == 1 ]] || fail "the full render must carry the rebuild Job (ci enables it)"
 
 echo "PASS: product-discovery chart render assertions"

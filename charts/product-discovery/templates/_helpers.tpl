@@ -31,6 +31,15 @@ ADR 0007). The base is trimmed so the suffix never pushes the name past the
 {{- end }}
 
 {{/*
+Fully qualified name of the MCP server Deployment/Service/HTTPRoute (<release>-mcp,
+ADR 0009). The base is trimmed so the suffix never pushes the name past the
+63-character DNS label limit.
+*/}}
+{{- define "product-discovery.mcpFullname" -}}
+{{- printf "%s-mcp" (include "product-discovery.fullname" . | trunc 59 | trimSuffix "-") }}
+{{- end }}
+
+{{/*
 Chart name and version as used by the chart label.
 */}}
 {{- define "product-discovery.chart" -}}
@@ -221,6 +230,24 @@ Deployment always includes).
 {{- end -}}
 
 {{/*
+The MCP server (cmd/mcp, ADR 0009) listens on mcp.httpAddr; the container port,
+the probes and the Service must agree, or the pod is never ready. The server
+needs DATABASE_URL like the api (checked by requireDatabase, which the api
+Deployment always includes).
+*/}}
+{{- define "product-discovery.requireMcp" -}}
+{{- if .Values.mcp.enabled -}}
+{{- $port := trimPrefix ":" (regexFind ":[0-9]+$" (toString .Values.mcp.httpAddr)) -}}
+{{- if ne $port (toString .Values.mcp.service.targetPort) -}}
+{{- fail (printf "mcp.httpAddr is %q but mcp.service.targetPort is %v: the container port, the probes and the Service must agree." .Values.mcp.httpAddr .Values.mcp.service.targetPort) -}}
+{{- end -}}
+{{- if and .Values.mcp.route.enabled (not .Values.mcp.route.path) -}}
+{{- fail "mcp.route.path is required when mcp.route.enabled is true: the gateway needs the prefix to route and rewrite to /mcp." -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Every render-time requirement of the real runtime, in one include. The api
 Deployment (always rendered) includes it, so a mis-set release fails
 `helm template` / `helm install`.
@@ -234,4 +261,5 @@ Deployment (always rendered) includes it, so a mis-set release fails
 {{- include "product-discovery.requireHttpPort" . -}}
 {{- include "product-discovery.requireRebuild" . -}}
 {{- include "product-discovery.requireA2a" . -}}
+{{- include "product-discovery.requireMcp" . -}}
 {{- end -}}

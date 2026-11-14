@@ -40,8 +40,11 @@ WORKDIR /app
 # filesystem read-only. Logs go to stdout.
 COPY --from=build --chown=app:app /out/ ./
 USER 1000
-EXPOSE 8080 8093
+EXPOSE 8080 8090 8093
 # cmd/api is the service's main binary (HTTP on :8080). Additional cmd/*
 # binaries are run by the chart with `command: ["/app/<dirname>"]`; cmd/a2a is
-# the read-only A2A agent (HTTP on :8093, ADR 0007).
+# the read-only A2A agent (HTTP on :8093, ADR 0007) and cmd/mcp the read-only
+# MCP server (Streamable HTTP on :8090, ADR 0009). The build loop above compiles
+# every cmd/* directory into /out and the COPY above puts them all in /app, so
+# /app/mcp ships in this same image with no per-binary line to forget.
 ENTRYPOINT ["./api"]
