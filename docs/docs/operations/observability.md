@@ -7,7 +7,7 @@ sidebar_position: 3
 
 # Observability
 
-`cmd/api` and `cmd/a2a` follow the fleet observability standard
+`cmd/api`, `cmd/a2a` and `cmd/mcp` follow the fleet observability standard
 ([ADR 0005](/docs/adr/0005-fleet-observability-standard)): JSON logs on stdout that carry `trace_id` and
 `span_id`, an OTLP/gRPC export of traces and metrics, two service counters (searches and poison messages), and the Go runtime metrics.
 `cmd/rebuild` exports the same way once, on exit. This page lists what the code emits; the dashboard and
@@ -15,7 +15,7 @@ alert rules listed at the end are the ones that exist in `warehouse-infra` on `d
 captured run.
 
 Source: `internal/adapters/outbound/telemetry/` (`telemetry.go`, `search_metrics.go`, `slogotel.go`),
-`internal/adapters/inbound/kafka/poison.go`, `cmd/api/telemetry.go`, `cmd/a2a/telemetry.go`, `cmd/rebuild/main.go`.
+`internal/adapters/inbound/kafka/poison.go`, `cmd/api/telemetry.go`, `cmd/a2a/telemetry.go`, `cmd/mcp/telemetry.go`, `cmd/rebuild/main.go`.
 
 ## Exporter and resource
 
@@ -26,7 +26,7 @@ Source: `internal/adapters/outbound/telemetry/` (`telemetry.go`, `search_metrics
 | Metric push interval | 15 s (`PeriodicReader`) |
 | Trace sampling and batching | SDK defaults with a batch span processor |
 | Propagation | W3C `traceparent` / `tracestate` and baggage |
-| `service.name` | `OTEL_SERVICE_NAME`; default `product-discovery` (api), `product-discovery-a2a` (agent), `product-discovery-rebuild` (job) |
+| `service.name` | `OTEL_SERVICE_NAME`; default `product-discovery` (api), `product-discovery-a2a` (agent), `product-discovery-mcp` (MCP server), `product-discovery-rebuild` (job) |
 | `service.version` | `SERVICE_VERSION`, default `dev` |
 | `deployment.environment.name` | `ENVIRONMENT`, default `local` |
 | Extra resource attributes | `OTEL_RESOURCE_ATTRIBUTES` is honoured by the SDK default resource |
@@ -39,10 +39,10 @@ default); see [Configuration](/docs/operations/configuration) and the [Runbook](
 
 | Instrument | Type | Unit | Attributes | Emitted by | Meaning |
 | --- | --- | --- | --- | --- | --- |
-| `discovery.searches.served` | Int64 counter | `{search}` | `outcome` = `served`, `empty` or `failed`; `reason` = `validation-failed` or `internal-error` (only when `outcome` is `failed`) | `cmd/api` and `cmd/a2a`, once per `SearchProducts` call (REST `GET /products` and the `search_products` skill) | `served`: a page with hits, or a continuation page; `empty`: a first page that found nothing even after the trigram retry; `failed`: the search answered an error. A rising `empty` share means shoppers look for products the storefront does not show (check the projection feeds); `failed` with `internal-error` means the search itself is failing; `validation-failed` is a client sending bad queries |
-| `discovery.kafka.poison_messages` | Int64 counter | `{message}` | `consumer` = `offer-availability`, `product-content` or `pricing`; `disposition` = `skipped` or `dead-lettered`; `reason` = `invalid-envelope`, `unknown-type` or `unappliable-payload` | `cmd/api` only (the three Kafka consumers; `cmd/a2a` and `cmd/rebuild` run no consumer) | Adds 1 for each message a consumer can never apply, so the paths that used to leave only a log line (or nothing) are countable. `skipped` + `invalid-envelope`: the value is not a CloudEvents 1.0 message, committed past (WARN `skipping a message that is not a valid CloudEvent`). `skipped` + `unknown-type`: a `type` this consumer has no handler for, committed past with no log line. `dead-lettered` + `unappliable-payload`: a handled type whose `data` cannot be decoded or folded, sent at once to `<topic>.dlq` without retry (WARN `dead-lettering an event that can never be applied`). `skipped` + `unappliable-payload` is the same payload case when dead-lettering is off, which the production constructor never does. A message that failed transiently and was dead-lettered after its 5 attempts is not counted here. Anything on `skipped` means the message is gone from the projection for good |
+| `discovery.searches.served` | Int64 counter | `{search}` | `outcome` = `served`, `empty` or `failed`; `reason` = `validation-failed` or `internal-error` (only when `outcome` is `failed`) | `cmd/api`, `cmd/a2a` and `cmd/mcp`, once per `SearchProducts` call (REST `GET /products`, the `search_products` skill and the `search_products` MCP tool) | `served`: a page with hits, or a continuation page; `empty`: a first page that found nothing even after the trigram retry; `failed`: the search answered an error. A rising `empty` share means shoppers look for products the storefront does not show (check the projection feeds); `failed` with `internal-error` means the search itself is failing; `validation-failed` is a client sending bad queries |
+| `discovery.kafka.poison_messages` | Int64 counter | `{message}` | `consumer` = `offer-availability`, `product-content` or `pricing`; `disposition` = `skipped` or `dead-lettered`; `reason` = `invalid-envelope`, `unknown-type` or `unappliable-payload` | `cmd/api` only (the three Kafka consumers; `cmd/a2a`, `cmd/mcp` and `cmd/rebuild` run no consumer) | Adds 1 for each message a consumer can never apply, so the paths that used to leave only a log line (or nothing) are countable. `skipped` + `invalid-envelope`: the value is not a CloudEvents 1.0 message, committed past (WARN `skipping a message that is not a valid CloudEvent`). `skipped` + `unknown-type`: a `type` this consumer has no handler for, committed past with no log line. `dead-lettered` + `unappliable-payload`: a handled type whose `data` cannot be decoded or folded, sent at once to `<topic>.dlq` without retry (WARN `dead-lettering an event that can never be applied`). `skipped` + `unappliable-payload` is the same payload case when dead-lettering is off, which the production constructor never does. A message that failed transiently and was dead-lettered after its 5 attempts is not counted here. Anything on `skipped` means the message is gone from the projection for good |
 | `http.server.request.duration` | Float64 histogram | `s` | `http.method`, `http.scheme`, `http.route` (the chi pattern, for example `/products/{catalogItemId}`) | `cmd/api` only (otelchi metric middleware) | Request duration; bucket bounds 5 ms to 10 s (0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10) |
-| Go runtime metrics | various | various | none of its own | `cmd/api`, `cmd/a2a`, `cmd/rebuild` | The OpenTelemetry contrib `runtime` instrumentation (goroutines, heap, GC). The dashboard reads them as `go_goroutine_count` and `go_memory_used_bytes` (with a fallback to the older `runtime_go_*` names) |
+| Go runtime metrics | various | various | none of its own | `cmd/api`, `cmd/a2a`, `cmd/mcp`, `cmd/rebuild` | The OpenTelemetry contrib `runtime` instrumentation (goroutines, heap, GC). The dashboard reads them as `go_goroutine_count` and `go_memory_used_bytes` (with a fallback to the older `runtime_go_*` names) |
 
 The search counter is defined in `internal/adapters/outbound/telemetry/search_metrics.go` under the meter name
 `github.com/IQVO/product-discovery`; its Prometheus name on the fleet dashboard is

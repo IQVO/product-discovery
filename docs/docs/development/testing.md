@@ -17,12 +17,12 @@ this page is a captured run.
 | --- | --- | --- |
 | Unit, domain | 56 top-level test functions in 4 packages (`productview` 24, `search` 20, `categoryview` 10, `shared` 2) | `make test` |
 | Unit, application | 23 in `internal/application/usecases` (6 files, including concurrency and metrics) | `make test` |
-| Unit and httptest, adapters and binaries | `inbound/http` 19, `inbound/kafka` 32, `inbound/a2a` 20, `inbound/requestlog` 4, `kafka/cloudevents` 6, `outbound/kafka` 4, `outbound/memory` 1 (the repository contract), `outbound/sources` 7, `outbound/telemetry` 11, `bootretry` 6, `cmd/api` 16, `cmd/a2a` 14, `cmd/rebuild` 6 | `make test` |
+| Unit and httptest, adapters and binaries | `inbound/http` 19, `inbound/kafka` 32, `inbound/a2a` 20, `inbound/mcp` 21, `inbound/requestlog` 4, `kafka/cloudevents` 6, `outbound/kafka` 4, `outbound/memory` 1 (the repository contract), `outbound/sources` 7, `outbound/telemetry` 11, `bootretry` 6, `cmd/api` 16, `cmd/a2a` 14, `cmd/mcp` 15, `cmd/rebuild` 6 | `make test` |
 | Coverage gate | 90 % over `./internal/domain/...,./internal/application/...` (`COVERAGE_THRESHOLD`) | `make coverage` |
 | BDD (godog / Gherkin) | 3 feature files, **18 scenarios** (`search` 8, `folding` 6, `categories` 4), 60 step lines; strict mode | `make bdd` |
-| Integration (testcontainers) | 7 tests behind `//go:build integration` in 8 files: `cmd/api` 3, `cmd/a2a` 1, `cmd/rebuild` 1, `outbound/postgres` 2 (plus one `TestMain` in each package that boots the shared container) | `make integration` |
+| Integration (testcontainers) | 8 tests behind `//go:build integration` in 9 files: `cmd/api` 3, `cmd/a2a` 1, `cmd/mcp` 1, `cmd/rebuild` 1, `outbound/postgres` 2 (plus one `TestMain` in each package that boots the shared container) | `make integration` |
 | Contract | The repository contract suite (`internal/adapters/outbound/repocontract`) runs against the in-memory store and against real Postgres; Spectral lints both specs; no consumer-driven or schemathesis contract tests | `make test`, `make integration`, CI `api-lint` |
-| Architecture fitness | 33 top-level test functions in `internal/architecture` (14 files); two skip here on purpose, see below | `make arch-test` |
+| Architecture fitness | 44 top-level test functions in `internal/architecture` (17 files); two skip here on purpose, see below | `make arch-test` |
 | Mutation (gremlins) | efficacy 99, mutant coverage 99 (`.gremlins.yaml`); the file records a 100 % / 100 % measurement over every package of `internal/domain` | `make mutation`, `make mutation-full` |
 | Evals | none: `EVALS.md` at the repository root is the harness template's note about agent evaluation on another service; it measures nothing in this repository | none |
 
@@ -34,7 +34,7 @@ package list.
 | Target | Runs | Notes |
 | --- | --- | --- |
 | `make help` | prints the target list | default target |
-| `make build` | `go build ./...` | compiles the three binaries |
+| `make build` | `go build ./...` | compiles the four binaries |
 | `make vet` | `go vet ./...` | |
 | `make fmt` / `make fmt-check` | `gofmt -w .` / fail when `gofmt -l .` is non-empty | |
 | `make lint` | `golangci-lint run --allow-parallel-runners ./...` | pinned `v2.14.0`, config `.golangci.yml` |

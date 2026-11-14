@@ -155,6 +155,13 @@ curl -s localhost:8093/.well-known/agent-card.json | jq .
 The agent serves the same two reads as skills (`search_products`, `get_product`); see the
 [API overview](/docs/api-reference).
 
+The read-only MCP server serves the same two reads as tools ([MCP tools](/docs/mcp/tools)):
+
+```sh
+go run ./cmd/mcp      # DATABASE_URL as above; no Kafka needed; listens on :8090
+curl -s localhost:8090/healthz
+```
+
 ## 6. Optional: seed from snapshots instead of events
 
 When the producers are running and you want the projections filled without replaying Kafka, run the
