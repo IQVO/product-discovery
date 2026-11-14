@@ -125,6 +125,9 @@ func registerDocPrices(sc *godog.ScenarioContext, w *world) {
 				Price:         productview.PriceChanged{Currency: currency, ListPriceMinor: list, EffectivePriceMinor: effective, Version: version},
 			}))
 		})
+	sc.Step(`^pricing announces the withdrawal of the price of "([^"]*)" at version (-?\d+)$`, func(id string, version int64) error {
+		return w.try(w.consumer.ApplyItemPriceWithdrawn(bg(), w.meta(), usecases.ItemPriceWithdrawn{CatalogItemID: id, Version: version}))
+	})
 	sc.Step(`^pricing withdraws the price of "([^"]*)" at version (\d+)$`, func(id string, version int64) error {
 		return w.consumer.ApplyItemPriceWithdrawn(bg(), w.meta(), usecases.ItemPriceWithdrawn{CatalogItemID: id, Version: version})
 	})

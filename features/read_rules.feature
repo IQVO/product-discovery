@@ -51,7 +51,7 @@ Feature: What the shopper sees: visibility, search rules, facets and the categor
       | query                      |
       | priceMin=4000&priceMax=3000 |
       | priceMin=-1                |
-      | priceMax=-5                |
+      | priceMax=-1               |
       | priceMin=ten               |
       | inStock=yes                |
       | inStock=TRUE               |

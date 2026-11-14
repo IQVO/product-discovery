@@ -41,10 +41,13 @@ Feature: The bootstrap rebuild folds the upstream snapshots through the event ru
     When the operator runs the rebuild
     Then the search for "retired" finds nothing
 
-  Scenario: A withdrawn price row is folded as a withdrawal
+  Scenario: A withdrawn price row is folded as a withdrawal and seeds the version guard
     Given the snapshot store lists the item "RB-6" titled "Unpriced Snapshot Kettle"
     And the snapshot store lists the withdrawn price of "RB-6" at version 4
     When the operator runs the rebuild
+    Then the rebuild skipped 0 rows
+    And the product "RB-6" shows no price
+    When pricing sets version 3 of the price of "RB-6" to 500 with list price 500
     Then the product "RB-6" shows no price
 
   Scenario: An unpublished category tree is skipped

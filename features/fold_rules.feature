@@ -193,6 +193,15 @@ Feature: The rules every consumed fact is folded under
       | 1       | USD      | -1        | 100  | refused as invalid |
       | 1       | USD      | 100       | -1   | refused as invalid |
 
+  Scenario Outline: A withdrawal needs a version from 1
+    When pricing announces the withdrawal of the price of "P-7" at version <version>
+    Then the fact is <outcome>
+
+    Examples:
+      | version | outcome            |
+      | 1       | accepted           |
+      | 0       | refused as invalid |
+
   Scenario Outline: A content publication applies only at a strictly higher revision
     Given the item master creates "C-1" titled "Copy Kettle"
     And a content draft described "Original copy"
