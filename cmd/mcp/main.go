@@ -91,7 +91,7 @@ func run(ctx context.Context) error {
 	}
 	reads.Metrics = searchMetrics
 
-	logger.Info("mcp server starting", "version", tel.serviceVersion, "environment", getenv("ENVIRONMENT", "local"))
+	logger.Info("mcp server starting", "version", tel.serviceVersion)
 	srv := &http.Server{
 		Addr:              cfg.addr,
 		Handler:           newRouter(inboundmcp.Handler(inboundmcp.NewServer(inboundmcp.Deps{Reads: reads})), logger, tel.serviceName),
