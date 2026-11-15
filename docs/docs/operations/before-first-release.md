@@ -23,7 +23,7 @@ the fleet reference). The chart is NOT generated: it is shaped by what the servi
 :::note What differs in this repository
 This checklist came with the service template; the parts that differ here, from the code on `develop`:
 
-- The godog features are in `features/*.feature` (3 files) and the runner is `internal/bdd/features_test.go`
+- The godog features are in `features/*.feature` (8 files) and the runner is `internal/bdd/features_test.go`
   (`Paths: ../../features`); there is no Go file at the repo root (row 2).
 - `ci.yml` has no `trivy-scan` job (row 3) and no `docs-api-drift` job (row 10); it has `lint`, `complexity`,
   `test`, `bdd`, `integration`, `mutation-fast`, `api-lint`, `vuln`, `helm-lint`, `chart-tests`, `arch-test`,
@@ -37,7 +37,7 @@ This checklist came with the service template; the parts that differ here, from 
 | # | Item | Done when | Guarded by |
 |---|------|-----------|------------|
 | 1 | **Real runtime only.** `cmd/api` wires Postgres and Kafka; the in-memory adapters (`internal/adapters/outbound/memory`) are test doubles. No `*_MODE`/permissive fallback, no default that boots "healthy" without `DATABASE_URL` or `KAFKA_BROKERS`. | `cmd/**` has no import of the memory package; the binary exits at boot on missing `DATABASE_URL`, `KAFKA_BROKERS` or a consumer group id. | `TestRuntimeBinaryHasNoInMemoryAdapters` (`internal/architecture/runtime_no_memory_fitness_test.go`). The boot-error behaviour has no generic sensor: cover it in `cmd/api` tests and in the chart test (row 8). |
-| 2 | **No Go file at the repo root.** The godog runner and steps live in `features/` (`package features_test`, `Paths: "."`), binaries in `cmd/<name>/`, everything else in `internal/`. | `ls *.go` at the root prints nothing; `make bdd` still finds `TestFeatures`. | `TestNoGoFilesAtRepoRoot` (`internal/architecture/no_go_files_at_root_fitness_test.go`). |
+| 2 | **No Go file at the repo root.** The godog runner and steps live in `internal/bdd` over the Gherkin files in `features/`, binaries in `cmd/<name>/`, everything else in `internal/`. | `ls *.go` at the root prints nothing; `make bdd` still finds `TestFeatures`. | `TestNoGoFilesAtRepoRoot` (`internal/architecture/no_go_files_at_root_fitness_test.go`). |
 | 3 | **`Dockerfile` builds every `cmd/*`.** Generated; confirm `ENTRYPOINT ["./api"]` matches your main binary and `EXPOSE` matches `HTTP_ADDR`. | `docker build .` succeeds locally; `docker run --rm <image> /app/api` starts (or exits with the intended config error). | `trivy-scan` job builds the image on every PR to `main`/`develop`; `docker-publish` on push to `main`. |
 | 4 | **`.dockerignore`** excludes docs, charts, harness, tests output. Generated. | Build context is small; `.git`, `.claude/`, `docs/`, `charts/` are not sent. | none: review once. |
 | 5 | **Helm chart `charts/product-discovery/`** with `Chart.yaml` `name: product-discovery`. The chart directory name, the `Chart.yaml` name and the `helm package` file name in the `release` job must all be `product-discovery`. | `helm lint charts/product-discovery` and `helm template` with the required values both pass. | `helm-lint` (PRs) and the `release` job (packages `product-discovery-<version>.tgz`). |
