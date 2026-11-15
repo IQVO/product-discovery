@@ -24,7 +24,7 @@ flowchart LR
   BFF -->|"2 qry GET /products?q=..."| PD
   PD -->|"3 read tree, run full-text search,<br/>retry with pg_trgm if empty"| DB
   DB -->|"4 rows, facet tallies"| PD
-  PD -->|"5 200 hits, facets, suggestions, next"| BFF
+  PD -->|"5 200 items, facets, suggestions, nextCursor"| BFF
   BFF -->|"6 render results"| SH
 ```
 

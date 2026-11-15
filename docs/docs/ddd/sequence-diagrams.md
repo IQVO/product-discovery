@@ -39,7 +39,7 @@ sequenceDiagram
     end
     Q->>Q: join category paths, build suggestions, encode next cursor
     Q-->>H: SearchPage, metric served or empty
-    H-->>BFF: 200 hits, facets, categorySuggestions, next
+    H-->>BFF: 200 items, facets, categorySuggestions, nextCursor
   end
 ```
 

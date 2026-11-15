@@ -45,10 +45,11 @@ Source: `internal/application/usecases/{queries,consume,consume_offer,consume_ca
 
 - **Inputs:** `q` (free text, at most 200 characters after whitespace is collapsed), `categoryId`, `inStock`,
   `priceMin`, `priceMax` (minor units, not negative), `sort` (`relevance` default, `price-asc`,
-  `price-desc`, `title`), `after` (opaque cursor), `limit` (1 to 500, default 100; 0 is refused). REST names the same cursor `cursor` and answers `{items, nextCursor}`; this tool keeps `after` and `{hits, next}`.
+  `price-desc`, `title`), `cursor` (opaque), `limit` (1 to 500, default 100; 0 is refused). REST (`GET /products`) and the MCP tool `search_products` name the cursor `cursor` and answer `{items, facets, categorySuggestions, nextCursor}`; the A2A skill `search_products` keeps the older names, `after` for the input and `{hits, facets, categorySuggestions, next}` for the answer.
 - **Invariants:**
   - `priceMin` must not exceed `priceMax`; a cursor must belong to the same sort and the same kind of query
-    (text or browse), otherwise `validation-failed` with field `after`.
+    (text or browse), otherwise a `ValidationError` on the field `after` (the domain's name for the cursor):
+    REST and MCP answer it as `invalid-cursor` (400 on REST), the A2A skill as a 422 `validation-failed`.
   - A query with no text is a browse; with text it is full-text (`tsvector`: title A, attributes B,
     description and bullets C) plus a query-time boost for categories whose name covers every query word.
   - Only rows with an `ACTIVE` item and `PUBLISHED` content are listed; unpurchasable rows are listed and
@@ -59,7 +60,7 @@ Source: `internal/application/usecases/{queries,consume,consume_offer,consume_ca
   - Facets (`category`, `price-band`, `in-stock`) are tallied over the whole filtered set, not the page; empty
     buckets are dropped. Band edges come from `PRICE_BAND_EDGES` (default `2500,5000,10000,25000`).
   - A product-type query also returns up to 5 `categorySuggestions`, shallowest first.
-- **Output:** `hits`, `facets`, `categorySuggestions`, `next` (null on the last page); REST answers `items`, `facets`, `categorySuggestions`, `nextCursor` (absent on the last page).
+- **Output:** `items`, `facets`, `categorySuggestions`, `nextCursor` (absent on the last page) on REST and MCP; the A2A skill answers `hits`, `facets`, `categorySuggestions`, `next` (null on the last page).
 - **Metric:** exactly one increment of `discovery.searches.served`: `failed` (with `reason`), `empty` (a first
   page without hits) or `served`.
 - **Events raised:** none.
