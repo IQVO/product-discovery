@@ -5,6 +5,10 @@ metadata:
   name: {{ include "product-discovery.fullname" . }}
   labels:
     {{- include "product-discovery.labels" . | nindent 4 }}
+  {{- with include "product-discovery.kongPluginNames" . }}
+  annotations:
+    konghq.com/plugins: {{ . | quote }}
+  {{- end }}
 spec:
   parentRefs:
     {{- range .Values.gatewayApi.parentRefs }}
