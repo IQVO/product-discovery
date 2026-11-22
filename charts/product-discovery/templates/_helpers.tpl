@@ -30,6 +30,15 @@ ADR 0007). The base is trimmed so the suffix never pushes the name past the
 {{- printf "%s-a2a" (include "product-discovery.fullname" . | trunc 59 | trimSuffix "-") }}
 {{- end }}
 
+{{/* agents.colocate (warehouse-infra ADR 0012): "true" iff colocate, mcp and a2a are all on; else empty. */}}
+{{- define "product-discovery.agentsColocated" -}}
+{{- if and (.Values.agents | default dict).colocate .Values.mcp.enabled .Values.a2a.enabled }}true{{ end -}}
+{{- end }}
+
+{{- define "product-discovery.agentsFullname" -}}
+{{- printf "%s-agents" (include "product-discovery.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 {{/*
 Fully qualified name of the MCP server Deployment/Service/HTTPRoute (<release>-mcp,
 ADR 0009). The base is trimmed so the suffix never pushes the name past the
