@@ -92,7 +92,7 @@ func (r Rebuilder) skipInvalid(ctx context.Context, rep *Report, key string, err
 		return err
 	}
 	rep.Skipped++
-	r.logger().WarnContext(ctx, "rebuild skipped a row that cannot be folded", "key", key, "error", err)
+	r.logger().WarnContext(ctx, "rebuild skipped a row that cannot be folded", "key", sanitizeLog(key), "error", sanitizeErr(err))
 	return nil
 }
 
