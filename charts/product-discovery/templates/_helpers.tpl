@@ -30,6 +30,15 @@ ADR 0007). The base is trimmed so the suffix never pushes the name past the
 {{- printf "%s-a2a" (include "product-discovery.fullname" . | trunc 59 | trimSuffix "-") }}
 {{- end }}
 
+{{/* agents.colocate (warehouse-infra ADR 0012): "true" iff colocate, mcp and a2a are all on; else empty. */}}
+{{- define "product-discovery.agentsColocated" -}}
+{{- if and (.Values.agents | default dict).colocate .Values.mcp.enabled .Values.a2a.enabled }}true{{ end -}}
+{{- end }}
+
+{{- define "product-discovery.agentsFullname" -}}
+{{- printf "%s-agents" (include "product-discovery.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 {{/*
 Fully qualified name of the MCP server Deployment/Service/HTTPRoute (<release>-mcp,
 ADR 0009). The base is trimmed so the suffix never pushes the name past the
@@ -262,4 +271,19 @@ Deployment (always rendered) includes it, so a mis-set release fails
 {{- include "product-discovery.requireRebuild" . -}}
 {{- include "product-discovery.requireA2a" . -}}
 {{- include "product-discovery.requireMcp" . -}}
+{{- end -}}
+
+{{/*
+Comma-joined names of this chart's enabled KongPlugins, for the
+konghq.com/plugins annotation on every HTTPRoute this chart renders.
+Empty string (annotation omitted) when none are enabled.
+*/}}
+{{- define "product-discovery.kongPluginNames" -}}
+{{- $names := list -}}
+{{- range $name, $cfg := .Values.kongPlugins -}}
+{{- if $cfg.enabled -}}
+{{- $names = append $names (printf "%s-%s" (include "product-discovery.fullname" $) $name) -}}
+{{- end -}}
+{{- end -}}
+{{- join "," $names -}}
 {{- end -}}

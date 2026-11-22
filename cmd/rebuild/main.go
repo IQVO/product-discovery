@@ -69,7 +69,7 @@ func exitCode() int {
 	flush := startTelemetry(ctx, logger, os.Getenv)
 	defer flush()
 	if err := run(ctx, os.Getenv, logger); err != nil {
-		logger.Error("rebuild failed", "error", err)
+		logger.Error("rebuild failed", "error", sanitizeErr(err))
 		return 1
 	}
 	return 0

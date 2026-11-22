@@ -293,7 +293,7 @@ func problemFromUseCase(err error, itemID string) *problem {
 	case errors.Is(err, search.ErrValidation):
 		return problemValidation(err.Error())
 	default:
-		slog.Error("a2a skill failed", "error", err)
+		slog.Error("a2a skill failed", "error", logReplacer.Replace(err.Error()))
 		return problemInternal()
 	}
 }

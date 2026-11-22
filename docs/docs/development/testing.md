@@ -19,7 +19,7 @@ this page is a captured run.
 | Unit, application | 23 in `internal/application/usecases` (6 files, including concurrency and metrics) | `make test` |
 | Unit and httptest, adapters and binaries | `inbound/http` 19, `inbound/kafka` 32, `inbound/a2a` 20, `inbound/mcp` 21, `inbound/requestlog` 4, `kafka/cloudevents` 6, `outbound/kafka` 4, `outbound/memory` 1 (the repository contract), `outbound/sources` 7, `outbound/telemetry` 11, `bootretry` 6, `cmd/api` 16, `cmd/a2a` 14, `cmd/mcp` 15, `cmd/rebuild` 6 | `make test` |
 | Coverage gate | 90 % over `./internal/domain/...,./internal/application/...` (`COVERAGE_THRESHOLD`) | `make coverage` |
-| BDD (godog / Gherkin) | 3 feature files, **18 scenarios** (`search` 8, `folding` 6, `categories` 4), 60 step lines; strict mode | `make bdd` |
+| BDD (godog / Gherkin) | 8 feature files, **111 scenario definitions** (**179 executed** with the `Examples` rows expanded); strict mode | `make bdd` |
 | Integration (testcontainers) | 8 tests behind `//go:build integration` in 9 files: `cmd/api` 3, `cmd/a2a` 1, `cmd/mcp` 1, `cmd/rebuild` 1, `outbound/postgres` 2 (plus one `TestMain` in each package that boots the shared container) | `make integration` |
 | Contract | The repository contract suite (`internal/adapters/outbound/repocontract`) runs against the in-memory store and against real Postgres; Spectral lints both specs; no consumer-driven or schemathesis contract tests | `make test`, `make integration`, CI `api-lint` |
 | Architecture fitness | 44 top-level test functions in `internal/architecture` (17 files); two skip here on purpose, see below | `make arch-test` |
@@ -83,12 +83,23 @@ go test ./internal/application/usecases -v
 
 ## BDD (godog)
 
-`features/*.feature` holds three files: `search.feature` (8 scenarios: full-text, typo fallback, category
-suggestions, AND filters, subtree filter, facets over the whole result, cursor paging, validation
-failures), `folding.feature` (6: eleven kinds of fact make one purchasable product, facts before the item
-master stay invisible, a discontinued item, a suppressed listing, the per-listing guard, a redelivered
-event) and `categories.feature` (4: counts roll up, a rename shows at once, an older tree version is
-ignored, an empty list before the first tree). The runner is `internal/bdd/features_test.go` (`TestFeatures`,
+`features/*.feature` holds eight files: 111 `Scenario` and `Scenario Outline` definitions
+(`git grep -c -E "^[[:space:]]*Scenario" -- features`), executed as 179 scenarios once the `Examples` rows
+are expanded (`179 scenarios (179 passed)` from `go test ./internal/bdd -run TestFeatures -count=1 -v`).
+
+| File | Definitions / executed | Covers |
+| --- | --- | --- |
+| `search.feature` | 8 / 8 | full-text, typo fallback, category suggestions, AND filters, subtree filter, facets over the whole result, cursor paging, validation failures |
+| `folding.feature` | 6 / 6 | eleven kinds of fact make one purchasable product, facts before the item master stay invisible, a discontinued item, a suppressed listing, the per-listing guard, a redelivered event |
+| `folding_wave2.feature` | 5 / 5 | the removal facts (retired content, withdrawn price, created listing), the bootstrap rebuild, a bad cursor and the platform endpoints |
+| `categories.feature` | 4 / 4 | counts roll up, a rename shows at once, an older tree version is ignored, an empty list before the first tree |
+| `fold_rules.feature` | 31 / 60 | the documented fold rules of item master, listings, price and content (version guards, boundaries, redelivery) |
+| `read_rules.feature` | 31 / 54 | the read side: filters, price bounds, ranking, suggestions, typo fallback, ordering and paging, facets, categories |
+| `rest_rules.feature` | 14 / 30 | the REST contract: `limit` and cursor errors, `unknown-query-parameter`, NUL, methods, problem shape, `ETag` and `If-None-Match` |
+| `rebuild_rules.feature` | 12 / 12 | `RebuildProjections`: snapshots never rewind events, skipped rows, paged reads, a failing page and the re-run |
+
+The four `*_rules.feature` files pin rules documented in the Product Discovery documentation, ADR 0002 and the
+troubleshooting page. The runner is `internal/bdd/features_test.go` (`TestFeatures`,
 godog `Paths: ../../features`, `Strict: true`). It wires the **real use cases over the in-memory store** and
 reads through the real HTTP router, so the scenarios are fast and need no Docker.
 
