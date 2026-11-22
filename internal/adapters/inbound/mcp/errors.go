@@ -48,7 +48,7 @@ func mapError(ctx context.Context, err error) error {
 			return toolError(entry.slug, err.Error())
 		}
 	}
-	slog.ErrorContext(ctx, "mcp tool failed with an unexpected error", "error", err)
+	slog.ErrorContext(ctx, "mcp tool failed with an unexpected error", "error", sanitizeLog(err.Error()))
 	return toolError("internal-error", "an unexpected internal error occurred")
 }
 
