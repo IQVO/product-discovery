@@ -41,8 +41,8 @@ a2a:
     enabled: true
     path: /api/a2a/product-discovery
     parentRefs:
-      - name: warehouse-gateway
-        namespace: kong
+      - name: agent-router
+        namespace: envoy-gateway-system
         sectionName: http
 mcp:
   enabled: true
@@ -50,6 +50,6 @@ mcp:
     enabled: true
     path: /api/mcp/product-discovery
     parentRefs:
-      - name: warehouse-gateway
-        namespace: kong
+      - name: agent-router
+        namespace: envoy-gateway-system
         sectionName: http
